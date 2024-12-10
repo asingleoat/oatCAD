@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-ls src/* | entr -c -r zig build --summary all
+ls src/* build.zig build.zig.zon | entr -c -r zig build --summary all
