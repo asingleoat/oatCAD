@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+
+# File containing the whitelist (ensure it's in your repo and accessible)
+WHITELIST_FILE="commiters.txt"
+
+# Check if the whitelist file exists
+if [[ ! -f $WHITELIST_FILE ]]; then
+    echo "Error: Whitelist file $WHITELIST_FILE not found."
+    exit 1
+fi
+
+# Get the current user's name and email
+current_name=$(git config user.name)
+current_email=$(git config user.email)
+
+# Verify user against the whitelist
+is_whitelisted=false
+while IFS=';' read -r name email; do
+    if [[ "$name" == "$current_name" && "$email" == "$current_email" ]]; then
+        is_whitelisted=true
+        break
+    fi
+done < "$WHITELIST_FILE"
+
+if [[ $is_whitelisted == true ]]; then
+    echo "Committer verified: $current_name <$current_email>"
+    exit 0
+else
+    echo "Error: Committer $current_name <$current_email> is not in the whitelist."
+    echo "Please use an approved name and email."
+    exit 1
+fi
