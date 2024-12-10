@@ -15,6 +15,9 @@ pub fn build(b: *std.Build) void {
     // set a preferred release mode, allowing the user to decide how to optimize.
     const optimize = b.standardOptimizeOption(.{});
 
+    const websocket_dep = b.dependency("websocket", .{ .target = target, .optimize = optimize });
+    const websocket_module = websocket_dep.module("websocket");
+
     const lib = b.addStaticLibrary(.{
         .name = "oatCAD",
         // In this case the main source file is merely a path, however, in more
@@ -35,9 +38,6 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-
-    const websocket_dep = b.dependency("websocket", .{.target = target,.optimize = optimize});
-    const websocket_module = websocket_dep.module("websocket");
 
     exe.root_module.addImport("websocket", websocket_module);
 
