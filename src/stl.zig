@@ -81,9 +81,9 @@ pub const IndexArray = struct {
     idxs: []u32,
 
     pub fn toJson(self: IndexArray, allocator: std.mem.Allocator) ![]u8 {
-        var buffer: [10240000]u8 = undefined; // TODO this is dumb
-        var stream = std.io.fixedBufferStream(buffer[0..]);
-        var writer = stream.writer();
+        var list = std.ArrayList(u8).init(allocator);
+        defer list.deinit();
+        var writer = list.writer();
 
         // Start JSON object
         _ = try writer.write("{ \"vertices\": [");
@@ -102,9 +102,8 @@ pub const IndexArray = struct {
         }
         _ = try writer.write("] }");
 
-        // Extract the JSON string from the buffer
-        const jsonPayload = buffer[0..stream.pos];
-        return allocator.dupe(u8, jsonPayload);
+        const jsonPayload = list.toOwnedSlice();
+        return jsonPayload;
     }
 };
 
