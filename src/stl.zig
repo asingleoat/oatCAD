@@ -91,7 +91,7 @@ pub const IndexArray = struct {
         // Write vertices
         for (self.verts, 0..) |vert, i| {
             if (i != 0) try writer.writeByte(',');
-            try std.fmt.format(writer, "{d}, {d}, {d}", .{ vert.x, vert.y, vert.z });
+            try std.fmt.format(writer, "{d},{d},{d}", .{ vert.x, vert.y, vert.z });
         }
         _ = try writer.write("], \"indices\": [");
 

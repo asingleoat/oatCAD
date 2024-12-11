@@ -9,16 +9,20 @@ pub fn main() !void {
     var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = general_purpose_allocator.allocator();
 
-    const stl_model = try stl.readStl(std.fs.cwd(), allocator, "Bunny.stl"); // hardcoded path to untracked STL because this is development
-    const stl_tris = try stl.triListToSimpleArray(allocator, stl_model.tris);
-
     // hardcoded tetrahedron test
     // const indexArray = try stl.convertToIndexedArray(allocator, &model.unitTetTries);
     // const jsonPayload = try indexArray.toJson(allocator);
     // defer allocator.free(jsonPayload);
 
+    const stl_model = try stl.readStl(std.fs.cwd(), allocator, "Bunny.stl"); // hardcoded path to untracked STL because this is development
+    const stl_tris = try stl.triListToSimpleArray(allocator, stl_model.tris);
     const indexArray = try stl.convertToIndexedArray(allocator, stl_tris);
+    std.debug.print("idxs: {any}\n", .{(indexArray.idxs.len)});
+    std.debug.print("verts: {any}\n", .{(indexArray.verts.len)});
+    std.debug.print("sample vert: {any}\n", .{(indexArray.verts[0])});
     const jsonPayload = try indexArray.toJson(allocator);
+
+    std.debug.print("{d}\n", .{jsonPayload.len});
     defer allocator.free(jsonPayload);
 
     var context = ws.Context{
