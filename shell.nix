@@ -8,6 +8,7 @@ pkgs.mkShell {
     pkgs.git        # Additional tools
     pkgs.entr
     pkgs.html-tidy
+    pkgs.eslint
   ];
 
   # Optional: Shell hook for custom actions
