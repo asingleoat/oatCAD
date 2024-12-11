@@ -3,7 +3,6 @@ const websocket = @import("websocket");
 const Conn = websocket.Conn;
 const Message = websocket.Message;
 const Handshake = websocket.Handshake;
-const Server = websocket.Server;
 const model = @import("model.zig");
 
 // Define a struct for "global" data passed into your websocket handler
@@ -12,7 +11,7 @@ const model = @import("model.zig");
 pub const Context = struct {};
 
 pub fn sendFixedGeometry(conn: *Conn) !void {
-    std.debug.print("sending geometry", .{});
+    std.debug.print("sending geometry\n", .{});
 
     // while (true) {
     //     // Delay for 1 second

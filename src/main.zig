@@ -1,11 +1,9 @@
 const std = @import("std");
 const websocket = @import("websocket");
-const Conn = websocket.Conn;
-const Message = websocket.Message;
-const Handshake = websocket.Handshake;
 const Server = websocket.Server;
 const model = @import("model.zig");
 const ws = @import("websocket.zig");
+
 pub fn main() !void {
     var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = general_purpose_allocator.allocator();
