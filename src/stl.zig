@@ -7,12 +7,6 @@ pub fn Vec3(comptime T: type) type {
 pub const V3 = Vec3(f32);
 pub const IntV3 = Vec3(u32);
 
-// pub const V3 = packed struct {
-//     x: f32,
-//     y: f32,
-//     z: f32,
-// };
-
 pub const Tri = packed struct {
     n: V3,
     a: V3,
@@ -48,6 +42,22 @@ pub const Stl = struct {
     tris: TriList,
 };
 
+pub fn triListToSimpleArray(allocator: std.mem.Allocator, triList: TriList) ![]const TriSimple {
+    var simpleArray = std.ArrayList(TriSimple).init(allocator);
+    defer simpleArray.deinit();
+
+    for (triList.items(.a), triList.items(.b), triList.items(.c)) |a, b, c| {
+        var simpleTri: TriSimple = undefined;
+
+        simpleTri.a = b;
+        simpleTri.b = a;
+        simpleTri.c = c;
+
+        try simpleArray.append(simpleTri);
+    }
+    return simpleArray.toOwnedSlice();
+}
+
 pub fn concat(allocator: *std.mem.Allocator, a: Stl, b: Stl) !Stl {
     var tris = TriList{};
     try tris.ensureTotalCapacity(allocator, a.count + b.count);
@@ -71,7 +81,7 @@ pub const IndexArray = struct {
     idxs: []u32,
 
     pub fn toJson(self: IndexArray, allocator: std.mem.Allocator) ![]u8 {
-        var buffer: [1024]u8 = undefined; // Adjust size as needed
+        var buffer: [10240000]u8 = undefined; // TODO this is dumb
         var stream = std.io.fixedBufferStream(buffer[0..]);
         var writer = stream.writer();
 
@@ -132,7 +142,7 @@ fn addVertex(vertex: V3, vertexMap: *std.AutoHashMap(IntV3, u32), vertexList: *s
     }
 }
 
-pub fn readStl(dir: std.fs.Dir, allocator: *std.mem.Allocator, sub_path: []const u8) !Stl {
+pub fn readStl(dir: std.fs.Dir, allocator: std.mem.Allocator, sub_path: []const u8) !Stl {
     var file = try dir.openFile(sub_path, .{});
     defer file.close();
 
@@ -142,7 +152,7 @@ pub fn readStl(dir: std.fs.Dir, allocator: *std.mem.Allocator, sub_path: []const
     var header: [80]u8 = undefined;
     header = try stream.readBytesNoEof(80);
     var count: u32 = undefined;
-    count = try stream.readIntLittle(u32);
+    count = try stream.readInt(u32, std.builtin.Endian.little);
 
     var tris = TriList{};
     try tris.ensureTotalCapacity(allocator, count);
@@ -150,8 +160,8 @@ pub fn readStl(dir: std.fs.Dir, allocator: *std.mem.Allocator, sub_path: []const
     var tri: Tri = undefined;
 
     for (0..count) |_| {
-        const bytes = try stream.readBytesNoEof(@divExact(@bitSizeOf(Tri), 8));
-        @memcpy(std.mem.asBytes(&tri), &bytes);
+        const bytes = try stream.readBytesNoEof(50); // @divExact(@bitSizeOf(Tri), 8));
+        @memcpy(std.mem.asBytes(&tri)[0..50], &bytes);
         tris.appendAssumeCapacity(tri);
     }
 

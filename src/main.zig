@@ -9,11 +9,18 @@ pub fn main() !void {
     var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = general_purpose_allocator.allocator();
 
-    const indexArray = try stl.convertToIndexedArray(allocator, &model.unitTetTries);
+    const stl_model = try stl.readStl(std.fs.cwd(), allocator, "Bunny.stl"); // hardcoded path to untracked STL because this is development
+    const stl_tris = try stl.triListToSimpleArray(allocator, stl_model.tris);
+
+    // hardcoded tetrahedron test
+    // const indexArray = try stl.convertToIndexedArray(allocator, &model.unitTetTries);
+    // const jsonPayload = try indexArray.toJson(allocator);
+    // defer allocator.free(jsonPayload);
+
+    const indexArray = try stl.convertToIndexedArray(allocator, stl_tris);
     const jsonPayload = try indexArray.toJson(allocator);
     defer allocator.free(jsonPayload);
 
-    // this is the instance of your "global" struct to pass into your handlers
     var context = ws.Context{
         .payload = jsonPayload,
     };
@@ -27,9 +34,6 @@ pub fn main() !void {
 
     var server = try Server.init(allocator, config);
     defer server.deinit(allocator);
-
-    // List to store active connections
-    // var connections = std.ArrayList(websocket.Conn).init(allocator);
 
     try websocket.listen(ws.Handler, allocator, &context, .{
         .port = 9223,
