@@ -1,9 +1,17 @@
 { pkgs ? import ./pinned-nixpkgs.nix }:
 
-import ./default.nix {} // {
-  buildInputs = [
-    pkgs.git  # Additional dev tools
+let
+  base = import ./default.nix { inherit pkgs; };
+in
+pkgs.mkShell {
+  buildInputs = base.buildInputs ++ [
+    pkgs.git        # Additional tools
     pkgs.entr
     pkgs.html-tidy
   ];
+
+  # Optional: Shell hook for custom actions
+  shellHook = ''
+    echo "Welcome to the development shell!"
+  '';
 }
