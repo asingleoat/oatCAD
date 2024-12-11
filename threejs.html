@@ -86,7 +86,7 @@
         // Listen for WebSocket messages
         socket.addEventListener("message", (event) => {
             const data = JSON.parse(event.data);
-            console.log(data);
+            // console.log(data);
             // Remove old mesh if it exists
             if (scene.children.length > 1) {
                 scene.remove(scene.children[1]);
@@ -102,7 +102,7 @@
             // mesh.updateMatrixWorld(true);
             // camera.lookAt(mesh.position);
 
-            debugObject(mesh);
+            // debugObject(mesh);
             // printScene(scene);
         });
 
