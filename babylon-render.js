@@ -33,25 +33,43 @@
           dynamicMesh.material = material;
         }
       }
-      // WebSocket setup
-      const ws = new WebSocket('ws://localhost:9223');
-      ws.onopen = () => {
-        console.log('WebSocket connected');
-      };
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          updateMesh(data);
-        } catch (e) {
-          console.error('Error parsing WebSocket message:', e);
+
+        // WebSocket setup with retry logic
+        let ws = null;
+        let retryInterval = null;
+
+        function connectWebSocket() {
+            ws = new WebSocket('ws://localhost:9223');
+
+            ws.onopen = () => {
+                console.log('WebSocket connected');
+                clearInterval(retryInterval); // Stop retrying once connected
+                retryInterval = null;
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    updateMesh(data);
+                } catch (e) {
+                    console.error('Error parsing WebSocket message:', e);
+                }
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+
+            ws.onclose = () => {
+                console.log('WebSocket closed, retrying...');
+                if (!retryInterval) {
+                    retryInterval = setInterval(() => connectWebSocket(), 1000);
+                }
+            };
         }
-      };
-      ws.onerror = (error) => {
-        console.error('WebSocket error:', error);
-      };
-      ws.onclose = () => {
-        console.log('WebSocket closed');
-      };
+
+        connectWebSocket(); // Initial connection attempt
+
       // Render loop
       engine.runRenderLoop(() => {
         scene.render();
