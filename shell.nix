@@ -5,10 +5,11 @@ let
 in
 pkgs.mkShell {
   buildInputs = base.buildInputs ++ [
-    pkgs.git        # Additional tools
+    pkgs.git
     pkgs.entr
     pkgs.html-tidy
-    pkgs.eslint
+    # language agnostic formatter $ uncrustify -c /dev/null --replace babylon-render.js
+    pkgs.uncrustify
   ];
 
   # Optional: Shell hook for custom actions
