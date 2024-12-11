@@ -4,13 +4,16 @@ const Conn = websocket.Conn;
 const Message = websocket.Message;
 const Handshake = websocket.Handshake;
 const model = @import("model.zig");
+const stl = @import("stl.zig");
 
 // Define a struct for "global" data passed into your websocket handler
 // This is whatever you want. You pass it to `listen` and the library will
 // pass it back to your handler's `init`. For simple cases, this could be empty
-pub const Context = struct {};
+pub const Context = struct {
+    payload: []const u8,
+};
 
-pub fn sendFixedGeometry(conn: *Conn) !void {
+pub fn sendFixedGeometry(conn: *Conn, payload: []const u8) !void {
     std.debug.print("sending geometry\n", .{});
 
     // while (true) {
@@ -21,8 +24,8 @@ pub fn sendFixedGeometry(conn: *Conn) !void {
     //     std.time.sleep(16_666_667);
     // }
 
-    const jsonTet = try model.mkJsonArray(model.unitTetSlice);
-    try conn.writeText(jsonTet);
+    // const jsonTet = try model.mkJsonArray(model.unitTetSlice);
+    try conn.writeText(payload);
 }
 
 pub fn sendMultiples(conn: *Conn) !void {
@@ -83,7 +86,7 @@ pub const Handler = struct {
     // optional hook that, if present, will be called after initialization is complete
     pub fn afterInit(self: *Handler) !void {
         // try sendMultiples(self.conn);
-        try sendFixedGeometry(self.conn);
+        try sendFixedGeometry(self.conn, self.context.payload);
     }
 
     pub fn handle(self: *Handler, message: Message) !void {

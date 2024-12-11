@@ -5,16 +5,18 @@ const model = @import("model.zig");
 const ws = @import("websocket.zig");
 const stl = @import("stl.zig");
 
-const unitTetTries: [1]stl.TriSimple = .{stl.TriSimple{ .a = stl.va, .b = stl.vb, .c = stl.vc }};
-
 pub fn main() !void {
     var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = general_purpose_allocator.allocator();
 
-    std.debug.print("{any}\n", .{stl.convertToIndexedArray(allocator, &unitTetTries)});
+    const indexArray = try stl.convertToIndexedArray(allocator, &model.unitTetTries);
+    const jsonPayload = try indexArray.toJson(allocator);
+    defer allocator.free(jsonPayload);
 
     // this is the instance of your "global" struct to pass into your handlers
-    var context = ws.Context{};
+    var context = ws.Context{
+        .payload = jsonPayload,
+    };
 
     const config = .{
         // .handshake_timeout_ms = null,

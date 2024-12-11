@@ -69,6 +69,33 @@ pub fn concat(allocator: *std.mem.Allocator, a: Stl, b: Stl) !Stl {
 pub const IndexArray = struct {
     verts: []V3,
     idxs: []u32,
+
+    pub fn toJson(self: IndexArray, allocator: std.mem.Allocator) ![]u8 {
+        var buffer: [1024]u8 = undefined; // Adjust size as needed
+        var stream = std.io.fixedBufferStream(buffer[0..]);
+        var writer = stream.writer();
+
+        // Start JSON object
+        _ = try writer.write("{ \"vertices\": [");
+
+        // Write vertices
+        for (self.verts, 0..) |vert, i| {
+            if (i != 0) try writer.writeByte(',');
+            try std.fmt.format(writer, "{d}, {d}, {d}", .{ vert.x, vert.y, vert.z });
+        }
+        _ = try writer.write("], \"indices\": [");
+
+        // Write indices
+        for (self.idxs, 0..) |idx, i| {
+            if (i != 0) try writer.writeByte(',');
+            try std.fmt.format(writer, "{d}", .{idx});
+        }
+        _ = try writer.write("] }");
+
+        // Extract the JSON string from the buffer
+        const jsonPayload = buffer[0..stream.pos];
+        return allocator.dupe(u8, jsonPayload);
+    }
 };
 
 pub fn convertToIndexedArray(allocator: std.mem.Allocator, triangles: []const TriSimple) !IndexArray {
