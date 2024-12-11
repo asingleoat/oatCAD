@@ -10,6 +10,32 @@ const Server = websocket.Server;
 // pass it back to your handler's `init`. For simple cases, this could be empty
 const Context = struct {};
 
+fn sendFixedGeometry(conn: *Conn) !void {
+    std.debug.print("sending geometry", .{});
+
+    while (true) {
+        // Delay for 1 second
+        try conn.writeText(jsonTriangle);
+        std.time.sleep(1_000_000_000);
+        try conn.writeText(jsonTriangle2);
+        std.time.sleep(1_000_000_000);
+    }
+}
+
+const jsonTriangle =
+    \\{
+    \\  "vertices": [0, 0, 0, 1, 0, 0, 0, 1, 0],
+    \\  "indices": [0, 1, 2]
+    \\}
+;
+
+const jsonTriangle2 =
+    \\{
+    \\  "vertices": [0, 0, 0, -1, 0, 0, 0, 1, 0],
+    \\  "indices": [0, 1, 2]
+    \\}
+;
+
 fn sendMultiples(conn: *Conn) !void {
     var buffer: [128]u8 = undefined;
     var stream = std.io.fixedBufferStream(buffer[0..]);
@@ -94,7 +120,8 @@ const Handler = struct {
 
     // optional hook that, if present, will be called after initialization is complete
     pub fn afterInit(self: *Handler) !void {
-        try sendMultiples(self.conn);
+        // try sendMultiples(self.conn);
+        try sendFixedGeometry(self.conn);
     }
 
     pub fn handle(self: *Handler, message: Message) !void {

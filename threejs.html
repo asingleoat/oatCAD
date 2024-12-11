@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Three.js WebSocket Client</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.min.js"></script>
+    <script>
+        function printScene(scene) {
+            console.log("Scene graph:");
+            scene.traverse((object) => {
+                console.log(object);
+            });
+        }
+
+        function debugObject(object) {
+            console.log("Object:", object);
+
+            // Ensure visibility and prevent frustum culling
+            object.visible = true;
+            object.frustumCulled = false;
+
+            // Update transformation matrices
+            object.updateMatrix();
+            object.updateMatrixWorld(true);
+
+            // Check if the object has geometry and material
+            if (object.geometry) {
+                console.log("Geometry exists:", object.geometry);
+            } else {
+                console.error("Geometry is missing!");
+            }
+
+            if (object.material) {
+                console.log("Material exists:", object.material);
+            } else {
+                console.error("Material is missing!");
+            }
+        }
+
+      
+        // Set up the WebSocket
+        const serverUrl = "ws://localhost:9223"; // Replace with your WebSocket server URL
+        const socket = new WebSocket(serverUrl);
+
+        // Set up Three.js scene
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer();
+
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        camera.position.z = 5;
+        renderer.setClearColor(0xffffff); // white background
+
+        // Add a basic light
+        const light = new THREE.DirectionalLight(0xffffff, 1);
+        light.position.set(10, 10, 10);
+        scene.add(light);
+
+        // Function to create a mesh from received data
+        function createMesh(data) {
+            const geometry = new THREE.BufferGeometry();
+
+            // Vertices: a flat array of x, y, z positions
+            const vertices = new Float32Array(data.vertices);
+            geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+
+            // Faces (optional): a flat array of indices for triangles
+            if (data.indices) {
+                const indices = new Uint16Array(data.indices);
+                geometry.setIndex(new THREE.BufferAttribute(indices, 1));
+            }
+
+            const material = new THREE.MeshStandardMaterial({ color: 0xff77ff, wireframe: true });
+            return new THREE.Mesh(geometry, material);
+        }
+
+        // Listen for WebSocket messages
+        socket.addEventListener("message", (event) => {
+            const data = JSON.parse(event.data);
+            console.log(data);
+            // Remove old mesh if it exists
+            if (scene.children.length > 1) {
+                scene.remove(scene.children[1]);
+            }
+
+            // Add the new mesh to the scene
+            const mesh = createMesh(data);
+            scene.add(mesh);
+
+            // mesh.visible = true;
+            // mesh.frustumCulled = false;
+            // mesh.updateMatrix();
+            // mesh.updateMatrixWorld(true);
+            // camera.lookAt(mesh.position);
+
+            debugObject(mesh);
+            // printScene(scene);
+        });
+
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        }
+
+        animate();
+
+        // Handle WebSocket errors
+        socket.addEventListener("error", (error) => {
+            console.error("WebSocket error:", error);
+        });
+
+        // Handle connection close
+        socket.addEventListener("close", () => {
+            console.log("WebSocket connection closed.");
+        });
+    </script>
+</body>
+</html>
