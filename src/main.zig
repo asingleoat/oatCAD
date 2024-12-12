@@ -24,7 +24,7 @@ pub fn main() !void {
     // const jsonPayload = try indexArray.toJson(allocator);
 
     const polyline = try stl.circle(allocator, 1, 0.5);
-
+    polyline.move(stl.V3{ .x = 0, .y = 0, .z = 0.5 });
     const jsonPayload = try polyline.toJson(allocator);
 
     std.debug.print("{d}\n", .{jsonPayload.len});

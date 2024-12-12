@@ -2,7 +2,18 @@ const std = @import("std");
 const math = std.math;
 
 pub fn Vec3(comptime T: type) type {
-    return packed struct { x: T, y: T, z: T };
+    return packed struct {
+        x: T,
+        y: T,
+        z: T,
+        pub fn add(self: @This(), other: @This()) @This() {
+            return @This(){
+                .x = self.x + other.x,
+                .y = self.y + other.y,
+                .z = self.z + other.z,
+            };
+        }
+    };
 }
 
 pub const V3 = Vec3(f32);
@@ -103,6 +114,11 @@ pub fn circle(allocator: std.mem.Allocator, radius: f32, angle_step: f32) !Polyl
 
 pub const Polyline = struct {
     verts: []V3,
+    pub fn move(self: Polyline, vec: V3) void {
+        for (self.verts) |*vert| {
+            vert.* = vert.*.add(vec);
+        }
+    }
     pub fn toJson(self: Polyline, allocator: std.mem.Allocator) ![]u8 {
         var list = std.ArrayList(u8).init(allocator);
         defer list.deinit();
