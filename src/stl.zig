@@ -1,4 +1,5 @@
 const std = @import("std");
+const math = std.math;
 
 pub fn Vec3(comptime T: type) type {
     return packed struct { x: T, y: T, z: T };
@@ -76,6 +77,51 @@ pub fn concat(allocator: *std.mem.Allocator, a: Stl, b: Stl) !Stl {
     return joined_stl;
 }
 
+// TODO: shouldn't need dynamic arrays
+pub fn circle(allocator: std.mem.Allocator, radius: f32, angle_step: f32) !Polyline {
+    var vertexList = std.ArrayList(V3).init(allocator);
+    defer vertexList.deinit();
+    // @cos @sin radians
+    var angle: f32 = 0;
+    var vertex: V3 = V3{ .x = 0, .y = 0, .z = 0 };
+
+    while (angle < 2 * math.pi) {
+        vertex.x = radius * @cos(angle);
+        vertex.y = radius * @sin(angle);
+        try vertexList.append(vertex);
+        angle += angle_step;
+    }
+    // close the polyline
+    vertex.x = radius * @cos(0.0);
+    vertex.y = radius * @sin(0.0);
+    try vertexList.append(vertex);
+
+    return .{
+        .verts = try vertexList.toOwnedSlice(),
+    };
+}
+
+pub const Polyline = struct {
+    verts: []V3,
+    pub fn toJson(self: Polyline, allocator: std.mem.Allocator) ![]u8 {
+        var list = std.ArrayList(u8).init(allocator);
+        defer list.deinit();
+        var writer = list.writer();
+
+        _ = try writer.write("{ \"modelType\": \"line\", \"vertices\": [");
+
+        // Write vertices
+        for (self.verts, 0..) |vert, i| {
+            if (i != 0) try writer.writeByte(',');
+            try std.fmt.format(writer, "{d},{d},{d}", .{ vert.x, vert.y, vert.z });
+        }
+        _ = try writer.write("] }");
+
+        const jsonPayload = list.toOwnedSlice();
+        return jsonPayload;
+    }
+};
+
 pub const IndexArray = struct {
     verts: []V3,
     idxs: []u32,
@@ -86,7 +132,7 @@ pub const IndexArray = struct {
         var writer = list.writer();
 
         // Start JSON object
-        _ = try writer.write("{ \"vertices\": [");
+        _ = try writer.write("{ \"modelType\": \"mesh\", \"vertices\": [");
 
         // Write vertices
         for (self.verts, 0..) |vert, i| {
@@ -107,6 +153,7 @@ pub const IndexArray = struct {
     }
 };
 
+// TODO: shouldn't need dynamic arrays
 pub fn convertToIndexedArray(allocator: std.mem.Allocator, triangles: []const TriSimple) !IndexArray {
     var vertexMap = std.AutoHashMap(IntV3, u32).init(allocator);
     defer vertexMap.deinit();

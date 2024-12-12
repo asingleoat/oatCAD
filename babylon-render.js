@@ -11,13 +11,47 @@ camera.attachControl(canvas, true);
 
 const light = new BABYLON.HemisphericLight("Light", new BABYLON.Vector3(1, 1, 0), scene);
 
-// Placeholder for the mesh
-let dynamicMesh;
+function renderModel(data) {
+    switch (data.modelType) {
+        case "line":
+            updatePolyline(data);
+            break;
+        case "mesh":
+            updateMesh(data);
+            break;
+        default:
+           updateMesh(data);
+           console.log("fallthrough");
+            break;
+            // console.error("Unknown modelType:", jsonData.modelType);
+    }
+}
 
-// Function to update or create the mesh
+// polyline handler
+let dynamicLine;
+function updatePolyline(data) {
+    const flatVertices = new Float32Array(data.vertices);
+    const points = unflattenVertices(flatVertices);
+    if (dynamicLine) {
+        dynamicLine.updateVerticesData(BABYLON.VertexBuffer.PositionKind, points);
+    } else {
+        const dynamicLine = new BABYLON.MeshBuilder.CreateLines("dynamicLine", { points: points,     updatable: true }, scene);
+        dynamicLine.color = new BABYLON.Color3(1, 0, 0);
+    }
+}
+function unflattenVertices(flatVertices) {
+    const grouped = [];
+    for (let i = 0; i < flatVertices.length; i += 3) {
+        grouped.push(new BABYLON.Vector3(flatVertices[i], flatVertices[i + 1], flatVertices[i + 2]));
+    }
+    return grouped;
+}
+
+// 3d mesh handler
+let dynamicMesh;
 function updateMesh(data) {
 	const vertices = new Float32Array(data.vertices);
-	const indices = new Uint16Array(data.indices);
+	const indices = new Uint32Array(data.indices);
 	if (dynamicMesh) {
 		// Update existing mesh
 		const vertexData = new BABYLON.VertexData();
@@ -56,7 +90,7 @@ function connectWebSocket() {
 	ws.onmessage = (event) => {
 		try {
 			const data = JSON.parse(event.data);
-			updateMesh(data);
+			renderModel(data);
 		} catch (e) {
 			console.error('Error parsing WebSocket message:', e);
 		}
@@ -102,10 +136,11 @@ scene.onPointerObservable.add((pointerInfo) => {
 //     new BABYLON.Vector3(1, 1, 0),
 //     new BABYLON.Vector3(2, 0, 0),
 //     new BABYLON.Vector3(3, 1, 0),
+//     new BABYLON.Vector3(0, 0, 0),
 // ];
-//
+
 // const polyline = BABYLON.MeshBuilder.CreateLines("polyline", { points: points }, scene);
-//
+
 // const material = new BABYLON.StandardMaterial("lineMaterial", scene);
 // material.emissiveColor = new BABYLON.Color3(1, 0, 0); // Red line
 // polyline.material = material;
