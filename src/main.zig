@@ -1,4 +1,5 @@
 const std = @import("std");
+const testing = std.testing;
 const websocket = @import("websocket");
 const Server = websocket.Server;
 const model = @import("model.zig");
@@ -44,4 +45,27 @@ pub fn main() !void {
         .max_headers = 10,
         .address = "127.0.0.1",
     });
+}
+
+test "main memory-leaks" {
+    const allocator = testing.allocator;
+
+    var stl_model = try stl.readStl(std.fs.cwd(), allocator, "Bunny.stl"); // hardcoded path to untracked STL because this is development
+    defer stl_model.tris.deinit(allocator);
+
+    const stl_tris = try stl.triListToSimpleArray(allocator, stl_model.tris);
+    defer allocator.free(stl_tris);
+
+    const indexArray = try stl.convertToIndexedArray(allocator, stl_tris);
+    // TODO write a nicer deinit
+    defer allocator.free(indexArray.verts);
+    defer allocator.free(indexArray.idxs);
+
+    std.debug.print("idxs: {any}\n", .{(indexArray.idxs.len)});
+    std.debug.print("verts: {any}\n", .{(indexArray.verts.len)});
+    std.debug.print("sample vert: {any}\n", .{(indexArray.verts[0])});
+    const jsonPayload = try indexArray.toJson(allocator);
+
+    std.debug.print("{d}\n", .{jsonPayload.len});
+    defer allocator.free(jsonPayload);
 }
