@@ -33,7 +33,8 @@ function updateMesh(data) {
 		vertexData.applyToMesh(dynamicMesh);
 		// Apply material with double-sided rendering
 		const material = new BABYLON.StandardMaterial("material", scene);
-		material.diffuseColor = new BABYLON.Color3(1, 0, 0); // Red
+		// material.diffuseColor = new BABYLON.Color3(1, 0, 0); // Red
+		material.diffuseColor = new BABYLON.Color3(0.094, 0.604, 0.706); // Red
 		// material.backFaceCulling = false; // Render both sides
 		dynamicMesh.material = material;
 	}
@@ -74,6 +75,26 @@ function connectWebSocket() {
 }
 
 connectWebSocket();         // Initial connection attempt
+// scene.onPointerObservable.add(() => {
+//     isWireframe = !isWireframe;
+//     material.wireframe = isWireframe;
+// });
+
+let isWireframe = false;
+scene.onPointerObservable.add((pointerInfo) => {
+    if (pointerInfo.type === BABYLON.PointerEventTypes.POINTERPICK) {
+        const pickedMesh = pointerInfo.pickInfo.pickedMesh;
+        if (pickedMesh) {
+            // pickedMesh.material.diffuseColor = new BABYLON.Color3(1, 1, 0); // Change to red
+            console.log("Picked mesh:", pickedMesh.name);
+            isWireframe = !isWireframe;
+            pickedMesh.material.wireframe = isWireframe;
+
+        }
+    }
+});
+
+
 
 // Render loop
 engine.runRenderLoop(() => {
