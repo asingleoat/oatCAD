@@ -23,11 +23,25 @@ pub fn main() !void {
     // std.debug.print("sample vert: {any}\n", .{(indexArray.verts[0])});
     // const jsonPayload = try indexArray.toJson(allocator);
 
-    const polyline = try stl.circle(allocator, 1, 0.5);
-    polyline.move(stl.V3{ .x = 0, .y = 0, .z = 0.5 });
-    const jsonPayload = try polyline.toJson(allocator);
+    const polyline = try stl.circle(allocator, 2, 6);
+    polyline.move(stl.V3{ .x = 0, .y = 0, .z = 2.0 });
+    const polylineBase = try stl.circle(allocator, 1, 99);
+    const resampledPolyline = try stl.resample(allocator, polyline, 101);
+    const resampledBase = try stl.resample(allocator, polylineBase, 101);
+    // const jsonPayload = try resampledPolyline.toJson(allocator);
+    const indexArray = try stl.loft(allocator, resampledBase, resampledPolyline);
 
-    std.debug.print("{d}\n", .{jsonPayload.len});
+    // std.debug.print("idxs: {any}\n", .{(indexArray.idxs.len)});
+    // std.debug.print("verts: {any}\n", .{(indexArray.verts.len)});
+    // std.debug.print("sample vert: {any}\n", .{(indexArray.verts[0])});
+    // std.debug.print("length: {d}\n", .{stl.length(polyline)});
+
+    const jsonPayload = try indexArray.toJson(allocator);
+
+    std.debug.print("{any}\n", .{polyline.verts.len});
+    std.debug.print("{d}\n", .{resampledBase.verts.len});
+    std.debug.print("{any}\n", .{resampledPolyline.verts.len});
+    // std.debug.print("{d}\n", .{resampeldPolyline.verts.len});
     defer allocator.free(jsonPayload);
 
     var context = ws.Context{

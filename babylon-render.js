@@ -69,7 +69,7 @@ function updateMesh(data) {
 		const material = new BABYLON.StandardMaterial("material", scene);
 		// material.diffuseColor = new BABYLON.Color3(1, 0, 0); // Red
 		material.diffuseColor = new BABYLON.Color3(0.094, 0.604, 0.706); // Red
-		// material.backFaceCulling = false; // Render both sides
+		material.backFaceCulling = false; // Render both sides
 		dynamicMesh.material = material;
 	}
 }

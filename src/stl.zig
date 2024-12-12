@@ -13,6 +13,19 @@ pub fn Vec3(comptime T: type) type {
                 .z = self.z + other.z,
             };
         }
+        pub fn quadrance(self: @This(), other: @This()) T {
+            return ((self.x - other.x) * (self.x - other.x) + (self.y - other.y) * (self.y - other.y) + (self.z - other.z) * (self.z - other.z));
+        }
+        pub fn distance(self: @This(), other: @This()) T {
+            return @sqrt((self.x - other.x) * (self.x - other.x) + (self.y - other.y) * (self.y - other.y) + (self.z - other.z) * (self.z - other.z));
+        }
+        pub fn interpolate(self: @This(), other: @This(), coeff: T) @This() {
+            return @This(){
+                .x = coeff * self.x + (1 - coeff) * other.x,
+                .y = coeff * self.y + (1 - coeff) * other.y,
+                .z = coeff * self.z + (1 - coeff) * other.z,
+            };
+        }
     };
 }
 
@@ -89,13 +102,16 @@ pub fn concat(allocator: *std.mem.Allocator, a: Stl, b: Stl) !Stl {
 }
 
 // TODO: shouldn't need dynamic arrays
-pub fn circle(allocator: std.mem.Allocator, radius: f32, angle_step: f32) !Polyline {
+// n.b.: closed polylines have duplicate first-last vertices,
+// so .verts.len == segments + 1
+pub fn circle(allocator: std.mem.Allocator, radius: f32, segments: u32) !Polyline {
     var vertexList = std.ArrayList(V3).init(allocator);
     defer vertexList.deinit();
-    // @cos @sin radians
-    var angle: f32 = 0;
-    var vertex: V3 = V3{ .x = 0, .y = 0, .z = 0 };
 
+    var vertex: V3 = V3{ .x = 0, .y = 0, .z = 0 };
+    const fsegments: f32 = @floatFromInt(segments);
+    const angle_step: f32 = (2 * math.pi) / fsegments;
+    var angle: f32 = 0;
     while (angle < 2 * math.pi) {
         vertex.x = radius * @cos(angle);
         vertex.y = radius * @sin(angle);
@@ -112,6 +128,78 @@ pub fn circle(allocator: std.mem.Allocator, radius: f32, angle_step: f32) !Polyl
     };
 }
 
+// TODO: could convert to indexed array form directly, need to bench
+pub fn loft(allocator: std.mem.Allocator, base: Polyline, target: Polyline) !IndexArray {
+    var triList = std.ArrayList(TriSimple).init(allocator);
+    defer triList.deinit();
+
+    var tri: TriSimple = undefined;
+    for (0..base.verts.len - 1) |i| {
+        tri.a = base.verts[i];
+        tri.b = target.verts[i];
+        tri.c = target.verts[i + 1];
+
+        try triList.append(tri);
+
+        tri.a = base.verts[i];
+        tri.b = target.verts[i + 1];
+        tri.c = base.verts[i + 1];
+
+        try triList.append(tri);
+    }
+    const triSlice = try triList.toOwnedSlice();
+    return convertToIndexedArray(allocator, triSlice);
+}
+
+// bug when parts = p.verts.len - 1?
+pub fn resample(allocator: std.mem.Allocator, p: Polyline, parts: u32) !Polyline {
+    if (p.verts.len == parts) {
+        return p;
+    } else {
+        // allocate one extra for the closing part,
+        // maybe should make that caller responsibility?
+        const resampledVerts = try allocator.alloc(V3, parts + 1);
+        const portion: f32 = @floatFromInt(parts + 1);
+        const step: f32 = length(p) / portion;
+        var target: f32 = 0;
+        var dist: f32 = 0;
+        var j: usize = 0;
+        for (0..parts) |i| {
+            target += step;
+            while (target > dist) {
+                j += 1;
+                j = @min(j, p.verts.len - 1);
+                dist += p.verts[j].distance(p.verts[j - 1]);
+                // TODO: ugly patch for float issues
+            }
+            // const c = (dist - target) / p.verts[j].distance(p.verts[j - 1]);
+            // resampledVerts[i] = p.verts[j - 1].interpolate(p.verts[j], c);
+            // exact match
+            // if (target == dist) {
+            // resampledVerts[i] = p.verts[j];
+            // j += 1;
+            // } else
+            if (target <= dist) {
+                // std.debug.print("tgt: {any}, dist: {any}, i: {any}\n", .{ target, dist, i }
+                const c = (dist - target) / p.verts[j].distance(p.verts[j - 1]);
+                resampledVerts[i] = p.verts[j - 1].interpolate(p.verts[j], c);
+            }
+        }
+        resampledVerts[0] = p.verts[0];
+        resampledVerts[parts] = p.verts[0];
+        return .{ .verts = resampledVerts };
+    }
+}
+
+// geometric length
+pub fn length(p: Polyline) f32 {
+    var total: f32 = 0;
+    for (0..p.verts.len - 1) |i| {
+        total += p.verts[i].distance(p.verts[i + 1]);
+    }
+    return total;
+}
+
 pub const Polyline = struct {
     verts: []V3,
     pub fn move(self: Polyline, vec: V3) void {
@@ -119,6 +207,7 @@ pub const Polyline = struct {
             vert.* = vert.*.add(vec);
         }
     }
+
     pub fn toJson(self: Polyline, allocator: std.mem.Allocator) ![]u8 {
         var list = std.ArrayList(u8).init(allocator);
         defer list.deinit();
