@@ -95,6 +95,20 @@ scene.onPointerObservable.add((pointerInfo) => {
 });
 
 
+// test polyline rendering
+//
+// const points = [
+//     new BABYLON.Vector3(0, 0, 0),
+//     new BABYLON.Vector3(1, 1, 0),
+//     new BABYLON.Vector3(2, 0, 0),
+//     new BABYLON.Vector3(3, 1, 0),
+// ];
+//
+// const polyline = BABYLON.MeshBuilder.CreateLines("polyline", { points: points }, scene);
+//
+// const material = new BABYLON.StandardMaterial("lineMaterial", scene);
+// material.emissiveColor = new BABYLON.Color3(1, 0, 0); // Red line
+// polyline.material = material;
 
 // Render loop
 engine.runRenderLoop(() => {
