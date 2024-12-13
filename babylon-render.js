@@ -1,13 +1,20 @@
 const canvas = document.createElement('canvas');
 document.body.appendChild(canvas);
 
-const engine = new BABYLON.Engine(canvas, true);
-
+const engine = new BABYLON.Engine(canvas, true, { antialias: true });
 const scene = new BABYLON.Scene(engine);
+
 scene.clearColor = new BABYLON.Color4(0.8, 0.8, 0.8, 1);       // Light gray with full opacity
 
 const camera = new BABYLON.ArcRotateCamera("Camera", Math.PI / 2, Math.PI / 2, 5, BABYLON.Vector3.Zero(), scene);
 camera.attachControl(canvas, true);
+
+const pipeline = new BABYLON.DefaultRenderingPipeline("default", true, scene, [camera]);
+// msaa
+pipeline.samples = 16;
+
+// screen space antialiasing, breaks wireframe color for some reason?
+// const fxaa = new BABYLON.FxaaPostProcess("fxaa", 2.0, camera);
 
 const light = new BABYLON.HemisphericLight("Light", new BABYLON.Vector3(1, 1, 0), scene);
 
@@ -69,6 +76,8 @@ function updateMesh(data) {
 		const material = new BABYLON.StandardMaterial("material", scene);
 		// material.diffuseColor = new BABYLON.Color3(1, 0, 0); // Red
 		material.diffuseColor = new BABYLON.Color3(0.094, 0.604, 0.706); // Red
+    // weaken highlights
+    material.specularColor = new BABYLON.Color3(0.2,0.2,0.2);
 		material.backFaceCulling = false; // Render both sides
 		dynamicMesh.material = material;
 	}

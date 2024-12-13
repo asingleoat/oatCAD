@@ -26,8 +26,9 @@ pub fn main() !void {
     const polyline = try stl.circle(allocator, 2, 6);
     polyline.move(stl.V3{ .x = 0, .y = 0, .z = 2.0 });
     const polylineBase = try stl.circle(allocator, 1, 99);
-    const resampledPolyline = try stl.resample(allocator, polyline, 101);
-    const resampledBase = try stl.resample(allocator, polylineBase, 101);
+    const samples: u32 = 102;
+    const resampledPolyline = try stl.resample(allocator, polyline, samples);
+    const resampledBase = try stl.resample(allocator, polylineBase, samples);
     // const jsonPayload = try resampledPolyline.toJson(allocator);
     const indexArray = try stl.loft(allocator, resampledBase, resampledPolyline);
 

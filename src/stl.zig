@@ -159,31 +159,20 @@ pub fn resample(allocator: std.mem.Allocator, p: Polyline, parts: u32) !Polyline
         // allocate one extra for the closing part,
         // maybe should make that caller responsibility?
         const resampledVerts = try allocator.alloc(V3, parts + 1);
-        const portion: f32 = @floatFromInt(parts + 1);
+        const portion: f32 = @floatFromInt(parts);
         const step: f32 = length(p) / portion;
         var target: f32 = 0;
         var dist: f32 = 0;
         var j: usize = 0;
-        for (0..parts) |i| {
+        for (1..resampledVerts.len) |i| {
             target += step;
             while (target > dist) {
                 j += 1;
                 j = @min(j, p.verts.len - 1);
                 dist += p.verts[j].distance(p.verts[j - 1]);
-                // TODO: ugly patch for float issues
             }
-            // const c = (dist - target) / p.verts[j].distance(p.verts[j - 1]);
-            // resampledVerts[i] = p.verts[j - 1].interpolate(p.verts[j], c);
-            // exact match
-            // if (target == dist) {
-            // resampledVerts[i] = p.verts[j];
-            // j += 1;
-            // } else
-            if (target <= dist) {
-                // std.debug.print("tgt: {any}, dist: {any}, i: {any}\n", .{ target, dist, i }
-                const c = (dist - target) / p.verts[j].distance(p.verts[j - 1]);
-                resampledVerts[i] = p.verts[j - 1].interpolate(p.verts[j], c);
-            }
+            const c = (dist - target) / p.verts[j].distance(p.verts[j - 1]);
+            resampledVerts[i] = p.verts[j].interpolate(p.verts[j - 1], (1 - c));
         }
         resampledVerts[0] = p.verts[0];
         resampledVerts[parts] = p.verts[0];
