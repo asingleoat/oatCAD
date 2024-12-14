@@ -151,20 +151,21 @@ pub fn loft(allocator: std.mem.Allocator, base: Polyline, target: Polyline) !Ind
     return convertToIndexedArray(allocator, triSlice);
 }
 
-// bug when parts = p.verts.len - 1?
-pub fn resample(allocator: std.mem.Allocator, p: Polyline, parts: u32) !Polyline {
-    if (p.verts.len == parts) {
+pub fn resample(allocator: std.mem.Allocator, p: Polyline, segments: u32) !Polyline {
+    // closed polyline has one more vertex than it has line segments
+    if (p.verts.len == segments + 1) {
         return p;
     } else {
         // allocate one extra for the closing part,
         // maybe should make that caller responsibility?
-        const resampledVerts = try allocator.alloc(V3, parts + 1);
-        const portion: f32 = @floatFromInt(parts);
+        const resampledVerts = try allocator.alloc(V3, segments + 1);
+        const portion: f32 = @floatFromInt(segments);
         const step: f32 = length(p) / portion;
         var target: f32 = 0;
         var dist: f32 = 0;
         var j: usize = 0;
         for (1..resampledVerts.len) |i| {
+            std.debug.print("target: {any}, dist: {any}\n", .{ target, dist });
             target += step;
             while (target > dist) {
                 j += 1;
@@ -175,7 +176,7 @@ pub fn resample(allocator: std.mem.Allocator, p: Polyline, parts: u32) !Polyline
             resampledVerts[i] = p.verts[j].interpolate(p.verts[j - 1], (1 - c));
         }
         resampledVerts[0] = p.verts[0];
-        resampledVerts[parts] = p.verts[0];
+        resampledVerts[segments] = p.verts[0];
         return .{ .verts = resampledVerts };
     }
 }
