@@ -5,6 +5,7 @@ const Server = websocket.Server;
 const model = @import("model.zig");
 const ws = @import("websocket.zig");
 const stl = @import("stl.zig");
+const tree = @import("binary_tree.zig");
 
 pub fn main() !void {
     var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
@@ -23,17 +24,25 @@ pub fn main() !void {
     // std.debug.print("sample vert: {any}\n", .{(indexArray.verts[0])});
     // const jsonPayload = try indexArray.toJson(allocator);
 
-    const polyline = try stl.circle(allocator, 2, 6);
+    const polyline = try stl.circle(allocator, 2, 10);
     polyline.move(stl.V3{ .x = 0, .y = 0, .z = 2.0 });
-    const samples: u32 = 10;
+    const samples: u32 = 103;
     const polylineBase = try stl.circle(allocator, 1, samples - 3);
     const resampledPolyline = try stl.resample(allocator, polyline, samples - 1);
     const resampledBase = try stl.resample(allocator, polylineBase, samples - 1);
 
-    std.debug.print("{any}\n", .{polyline.verts.len});
-    std.debug.print("{any}\n", .{resampledPolyline.verts.len});
-    std.debug.print("{d}\n", .{polylineBase.verts.len});
-    std.debug.print("{d}\n", .{resampledBase.verts.len});
+    var prng = std.rand.DefaultPrng.init(blk: {
+        var seed: u64 = undefined;
+        try std.posix.getrandom(std.mem.asBytes(&seed));
+        break :blk seed;
+    });
+    const rand = prng.random();
+
+    try tree.triangulate(allocator, rand, polyline);
+    // std.debug.print("{any}\n", .{polyline.verts.len});
+    // std.debug.print("{any}\n", .{resampledPolyline.verts.len});
+    // std.debug.print("{d}\n", .{polylineBase.verts.len});
+    // std.debug.print("{d}\n", .{resampledBase.verts.len});
 
     // std.debug.print("idxs: {any}\n", .{(indexArray.idxs.len)});
     // std.debug.print("verts: {any}\n", .{(indexArray.verts.len)});

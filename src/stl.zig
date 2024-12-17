@@ -6,6 +6,17 @@ pub fn Vec3(comptime T: type) type {
         x: T,
         y: T,
         z: T,
+
+        pub fn lessThan(self: @This(), other: @This()) bool {
+            if (self.x < other.x) return true;
+            if (self.x > other.x) return false;
+
+            if (self.y < other.y) return true;
+            if (self.y > other.y) return false;
+
+            return self.z < other.z;
+        }
+
         pub fn add(self: @This(), other: @This()) @This() {
             return @This(){
                 .x = self.x + other.x,
@@ -112,7 +123,7 @@ pub fn circle(allocator: std.mem.Allocator, radius: f32, segments: u32) !Polylin
     const fsegments: f32 = @floatFromInt(segments);
     const angle_step: f32 = (2 * math.pi) / fsegments;
     var angle: f32 = 0;
-    while (angle < 2 * math.pi) {
+    while (angle < (2 * math.pi - (angle_step / 2))) {
         vertex.x = radius * @cos(angle);
         vertex.y = radius * @sin(angle);
         try vertexList.append(vertex);
@@ -165,7 +176,7 @@ pub fn resample(allocator: std.mem.Allocator, p: Polyline, segments: u32) !Polyl
         var dist: f32 = 0;
         var j: usize = 0;
         for (1..resampledVerts.len) |i| {
-            std.debug.print("target: {any}, dist: {any}\n", .{ target, dist });
+            // std.debug.print("target: {any}, dist: {any}\n", .{ target, dist });
             target += step;
             while (target > dist) {
                 j += 1;
@@ -214,6 +225,9 @@ pub const Polyline = struct {
 
         const jsonPayload = list.toOwnedSlice();
         return jsonPayload;
+    }
+    pub fn len(self: Polyline) usize {
+        return self.verts.len;
     }
 };
 
