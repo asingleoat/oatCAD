@@ -1,0 +1,15 @@
+* Resources
+* Next Steps
+** TODO Integrate Bare C Seidel as library
+** TODO Port C Seidel Library to Zig
+** TODO Optimize Zig Seidel
+** TODO Implement Extrude
+** TODO Port Involute Gears
+** TODO Develop Worm Gears
+** TODO Setup Benchmarking Utilities
+** TODO Base64 Websocket Payloads
+** TODO F64 based index array based alternative file format
+** TODO CBOR Index array over websocket
+** TODO allow sending rotation parameters to Babylon (and rendering rotations)
+** TODO t parameterized polylines (for simulating point over time movements)
+** TODO General coordinate transforms including over t parameters (for unwrapping gear cutting style motions)
