@@ -40,6 +40,7 @@ pub fn build(b: *std.Build) void {
     });
 
     exe.root_module.addImport("websocket", websocket_module);
+    exe.addIncludePath(b.path("src/nih"));
 
     // This declares intent for the executable to be installed into the
     // standard location when the user invokes the "install" step (the default
