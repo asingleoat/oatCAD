@@ -17,7 +17,7 @@ static uint initialise(uint n, segment_t *seg)
 
 /* #ifdef STANDALONE */
 
-uint mainish(uint argc, char *argv[], segment_t *seg, node_t *qs, trap_t *tr)
+uint main(uint argc, char *argv[], segment_t *seg, node_t *qs, trap_t *tr)
 {
   uint n, nmonpoly, genus;
   uint op[SEGSIZE][3], i, ntriangles;

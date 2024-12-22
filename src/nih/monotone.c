@@ -558,7 +558,7 @@ static uint traverse_polygon(uint mcur, uint trnum, uint from, uint dir, segment
 /* /\* triangulation. *\/ */
 /* /\* Take care not to triangulate duplicate monotone polygons *\/ */
 
-int triangulate_monotone_polygons(uint nvert, uint nmonpoly, uint op[][3]) {
+int triangulate_monotone_polygons(uint nvert, uint nmonpoly, uint* op[3]) {
   
   uint i;
   point_t ymax, ymin;

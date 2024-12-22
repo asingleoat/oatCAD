@@ -2,45 +2,58 @@ const std = @import("std");
 const stl = @import("stl.zig");
 
 pub fn triangulate(allocator: std.mem.Allocator, r: std.Random.Random, polygon: stl.Polyline) !void {
+    const root: usize = 0;
+    // _ = root;
     const n = polygon.verts.len - 1;
+
     const edges = try allocator.alloc(Edge, n);
-    const treeBuf = try allocator.alloc(TreeNode, n + 1);
-    const vertBuf = try allocator.alloc(bool, n + 1);
     for (0..edges.len) |i| {
-        edges[i] = .{ .v0 = i, .v1 = (i + 1) };
+        edges[i] = .{
+            .v = i,
+            .leftParent = null,
+            .rightParent = null,
+        };
     }
-    std.Random.shuffle(r, Edge, edges);
+    const shuffled_edges = try allocator.alloc(Edge, n);
+    @memcpy(shuffled_edges, edges);
+    std.Random.shuffle(r, Edge, shuffled_edges);
+
+    // query structure
+    const treeBuf = try allocator.alloc(TreeNode, n + 1);
+
+    // vertex insertion checklist
+    const vertBuf = try allocator.alloc(bool, n + 1);
+    @memset(vertBuf, false);
+
+    // edge insertion checklist
+    const edgeChecklist = try allocator.alloc(bool, n);
+    @memset(edgeChecklist, false);
 
     var tree = BinaryTree.init(treeBuf, vertBuf);
     // _ = tree;
-    try insertEdge(&tree, polygon.verts, edges[0]);
+    try insertEdge(&tree, root, polygon.verts, edges[0]);
     std.debug.print("{any}\n\n", .{edges});
-    std.debug.print("{any}\n\n", .{tree});
+    std.debug.print("{any}\n\n", .{shuffled_edges});
+    // std.debug.print("{any}\n\n", .{tree});
     for (1..logstar(polygon.verts.len - 1)) |h| {
-        // std.debug.print("l: {any}, r: {any}\n", .{ (N(n, h - 1)), (N(n, h)) });
         for ((N(n, h - 1) + 1)..(N(n, h) + 1)) |i| {
             _ = i;
-            // std.debug.print("i: {any}, h: {any}\n", .{ i, h });
         }
     }
 
     // Seidel's paper uses a real valued log2. If we do the integer log2 instead, then the for-loop in step (4) is always empty and we can skip it.
     // var i: usize = N(n, logstar(n));
-    // std.debug.print("i: {any}, n: {any}\n", .{ i, n });
     // while (i < n) {
-    // std.debug.print("i: {any}\n", .{i});
     // i += 1;
     // }
-
-    // tree.addNode
 }
 
-pub fn insertEdge(tree: *BinaryTree, verts: []stl.V3, e: Edge) !void {
-    if (verts[e.v0].lessThan(verts[e.v1])) {
+pub fn insertEdge(tree: *BinaryTree, parent: usize, verts: []stl.V3, e: Edge) !void {
+    if (verts[e.v].lessThan(verts[e.v + 1])) {
         std.debug.print("{any}\n\n", .{e});
-        _ = try tree.*.addNode(NodeKind{ .vertex = e.v1 });
+        _ = try tree.*.addNode(parent, NodeKind{ .vertex = e.v + 1 });
     } else {
-        _ = try tree.*.addNode(NodeKind{ .vertex = e.v0 });
+        _ = try tree.*.addNode(parent, NodeKind{ .vertex = e.v });
     }
 
     // _ = tree;
@@ -94,26 +107,48 @@ pub fn logstar(x: u64) u64 {
 pub const Trapezoid = struct {
     left: ?Edge,
     right: ?Edge,
-    above0: ?usize,
-    above1: ?usize,
-    below0: ?usize,
-    below1: ?usize,
+    // vertex above, spiritually an upper/lower limit y-value, but we break ties
+    // lexicographically so we need the whole 2D point
+    v_upper: ?usize,
+    v_lower: ?usize,
+    // indices of the at-most two neighboring trapezoids above/below
+    t_upper_0: ?usize,
+    t_upper_1: ?usize,
+    t_lower_0: ?usize,
+    t_lower_1: ?usize,
+    // index of trap's node in the query structure
+    node: ?usize,
 };
 
+// Implicit representation of an edge given by the index of the first vertex
 pub const Edge = struct {
-    v0: usize,
-    v1: usize,
+    v: usize,
+    leftParent: ?usize,
+    rightParent: ?usize,
 };
+
+pub fn isLeftOf(p: []stl.V3, vq: stl.V3, e: Edge) bool {
+    const v0 = p[e.v];
+    const v1 = p[e.v + 1];
+    // compute the cross product determinant:
+    const cross = (v1.x - v0.x) * (vq.y - v0.y) - (v1.y - v0.y) * (vq.x - v0.x);
+
+    // if cross >= 0, point p is to the left of line segment.
+    return cross >= 0;
+}
 
 pub const NodeKind = union(enum) {
     edge: Edge,
     vertex: usize,
+    trap: usize,
 };
 
 pub const TreeNode = struct {
     kind: NodeKind,
+    parent: ?usize,
     leftChild: ?usize, // left/lower
     rightChild: ?usize, // right/upper
+    trap: ?usize,
 };
 
 pub const BinaryTree = struct {
@@ -125,22 +160,54 @@ pub const BinaryTree = struct {
         return BinaryTree{ .nodes = buffer, .nextIndex = 0, .contains = containsBuf };
     }
 
+    pub fn locateVertex(
+        self: *BinaryTree,
+        p: []stl.V3,
+        v: stl.V3,
+        start: usize,
+    ) usize {
+        const node = self.nodes[start];
+        switch (node.kind) {
+            .vertex => |i| {
+                if (v.lessThan(p[i])) {
+                    self.locateVertex(p, v, node.leftChild);
+                } else {
+                    self.locateVertex(p, v, node.rightChild);
+                }
+            },
+            .edge => |e| {
+                if (isLeftOf(p, v, e)) {
+                    self.locateVertex(p, v, node.leftChild);
+                } else {
+                    self.locateVertex(p, v, node.rightChild);
+                }
+            },
+            .trap => |t| {
+                return t;
+            },
+        }
+    }
+
     pub fn addNode(
         self: *BinaryTree,
+        parent: usize,
         nodeKind: NodeKind,
     ) !usize {
         if (self.nextIndex >= self.nodes.len) return error.OutOfSpace;
         switch (nodeKind) {
             .vertex => |i| self.contains[i] = true,
             .edge => {},
+            .trap => {},
         }
 
         // TODO: locate parents and update their children indexes
 
         self.nodes[self.nextIndex] = TreeNode{
+            .parent = parent,
             .kind = nodeKind,
             .leftChild = null,
             .rightChild = null,
+            .trap = null,
         };
         const currentIndex = self.nextIndex;
         self.nextIndex += 1;
