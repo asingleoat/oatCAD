@@ -16,8 +16,7 @@ static uint initialise(uint n, segment_t *seg)
 }
 
 /* #ifdef STANDALONE */
-
-uint main(uint argc, char *argv[], segment_t *seg, node_t *qs, trap_t *tr)
+int mainish(int argc, char *argv[], segment_t *seg, node_t *qs, trap_t *tr)
 {
   uint n, nmonpoly, genus;
   uint op[SEGSIZE][3];
@@ -42,6 +41,12 @@ uint main(uint argc, char *argv[], segment_t *seg, node_t *qs, trap_t *tr)
   return 0;
 }
 
+int main(int argc, char *argv[]){
+  segment_t *seg[SEGSIZE];
+  node_t *qs[8*SEGSIZE];
+  trap_t *tr[4*SEGSIZE];
+  return mainish(argc, argv, seg[0], qs[0], tr[0]);
+}
 
 /* #else  /\* Not standalone. Use this as an interface routine *\/ */
 
@@ -69,7 +74,7 @@ uint main(uint argc, char *argv[], segment_t *seg, node_t *qs, trap_t *tr)
 /*  *\/ */
 
 
-uint triangulate_polygon(uint ncontours, uint *cntr, double *vertices[2], uint *triangles[3], segment_t *seg, node_t *qs, trap_t *tr)
+uint triangulate_polygon(uint ncontours, uint *cntr, double *vertices[2], uint triangles[][3], segment_t *seg, node_t *qs, trap_t *tr)
 {
   uint i;
   uint nmonpoly, ccount, npoints, genus;

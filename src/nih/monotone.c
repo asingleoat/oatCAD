@@ -22,7 +22,7 @@ static uint visited[TRSIZE];
 static uint chain_idx, op_idx, mon_idx;
 
 
-static int triangulate_single_polygon(uint, uint, uint, uint (*)[3]);
+static int triangulate_single_polygon(uint, uint, uint, uint [][3]);
 static uint traverse_polygon(uint, uint, uint, uint, segment_t *, trap_t *);
 
 /* /\* Function returns TRUE if the trapezoid lies inside the polygon *\/ */
@@ -558,7 +558,7 @@ static uint traverse_polygon(uint mcur, uint trnum, uint from, uint dir, segment
 /* /\* triangulation. *\/ */
 /* /\* Take care not to triangulate duplicate monotone polygons *\/ */
 
-int triangulate_monotone_polygons(uint nvert, uint nmonpoly, uint* op[3]) {
+int triangulate_monotone_polygons(uint nvert, uint nmonpoly, uint op[][3]) {
   
   uint i;
   point_t ymax, ymin;
