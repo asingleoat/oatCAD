@@ -164,7 +164,7 @@ pub fn resample(allocator: std.mem.Allocator, p: Polyline, segments: u32) !Polyl
     }
 }
 
-// geometric length
+// geometric length, as opposed to vertex count
 pub fn length(p: Polyline) f32 {
     var total: f32 = 0;
     for (0..p.verts.len - 1) |i| {
@@ -173,6 +173,7 @@ pub fn length(p: Polyline) f32 {
     return total;
 }
 
+// TODO: serialization types should live in a different module
 pub const PolylineList = struct {
     lines: []Polyline,
     pub fn toJson(self: PolylineList, allocator: std.mem.Allocator) ![]u8 {
