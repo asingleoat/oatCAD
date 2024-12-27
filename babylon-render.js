@@ -20,32 +20,55 @@ const light = new BABYLON.HemisphericLight("Light", new BABYLON.Vector3(1, 1, 0)
 
 function renderModel(data) {
     switch (data.modelType) {
-        case "line":
-            updatePolyline(data);
-            break;
-        case "mesh":
-            updateMesh(data);
-            break;
-        default:
-           updateMesh(data);
-           console.log("fallthrough");
-            break;
-            // console.error("Unknown modelType:", jsonData.modelType);
+    case "line":
+        updatePolylines(data);
+        break;
+    case "mesh":
+        updateMesh(data);
+        break;
+    default:
+        updateMesh(data);
+        console.log("fallthrough");
+        break;
+        // console.error("Unknown modelType:", jsonData.modelType);
     }
 }
 
 // polyline handler
-let dynamicLine;
-function updatePolyline(data) {
-    const flatVertices = new Float32Array(data.vertices);
-    const points = unflattenVertices(flatVertices);
-    if (dynamicLine) {
-        dynamicLine.updateVerticesData(BABYLON.VertexBuffer.PositionKind, points);
-    } else {
-        const dynamicLine = new BABYLON.MeshBuilder.CreateLines("dynamicLine", { points: points,     updatable: true }, scene);
-        dynamicLine.color = new BABYLON.Color3(1, 0, 0);
+const dynamicLines = [];
+function updatePolylines(data) {
+    const newPolylines = data.lines;
+
+    // Dispose of all currently rendered polylines
+    for (const line of dynamicLines) {
+        line.dispose();
     }
+    dynamicLines.length = 0; // Clear the array
+
+    // Render the new polylines
+    for (const polylineData of newPolylines) {
+        const flatVertices = new Float32Array(polylineData);
+
+        // Validate the data
+        // if (flatVertices.length % 3 !== 0 || flatVertices.length < 6) {
+            // console.error("Invalid vertex data length:", flatVertices.length);
+            // continue;
+        // }
+
+        // Convert flat vertices into BABYLON.Vector3 points
+        const points = unflattenVertices(flatVertices);
+
+        // Create and store the new polyline
+        const line = BABYLON.MeshBuilder.CreateLines("dynamicLine", {
+            points: points,
+            updatable: true,
+        }, scene);
+        line.color = new BABYLON.Color3(1, 0, 0); // Set line color
+        dynamicLines.push(line); // Store the line for future management
+    }
+
 }
+
 function unflattenVertices(flatVertices) {
     const grouped = [];
     for (let i = 0; i < flatVertices.length; i += 3) {
@@ -96,7 +119,8 @@ function connectWebSocket() {
 		retryInterval = null;
 	};
 
-	ws.onmessage = (event) => {
+	  ws.onmessage = (event) => {
+    // console.log("Raw WebSocket message:", event.data);
 		try {
 			const data = JSON.parse(event.data);
 			renderModel(data);
@@ -136,23 +160,6 @@ scene.onPointerObservable.add((pointerInfo) => {
         }
     }
 });
-
-
-// test polyline rendering
-//
-// const points = [
-//     new BABYLON.Vector3(0, 0, 0),
-//     new BABYLON.Vector3(1, 1, 0),
-//     new BABYLON.Vector3(2, 0, 0),
-//     new BABYLON.Vector3(3, 1, 0),
-//     new BABYLON.Vector3(0, 0, 0),
-// ];
-
-// const polyline = BABYLON.MeshBuilder.CreateLines("polyline", { points: points }, scene);
-
-// const material = new BABYLON.StandardMaterial("lineMaterial", scene);
-// material.emissiveColor = new BABYLON.Color3(1, 0, 0); // Red line
-// polyline.material = material;
 
 // Render loop
 engine.runRenderLoop(() => {

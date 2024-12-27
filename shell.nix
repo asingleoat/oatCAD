@@ -10,6 +10,7 @@ pkgs.mkShell {
     pkgs.html-tidy
     # language agnostic formatter $ uncrustify -c /dev/null --replace babylon-render.js
     pkgs.uncrustify
+    pkgs.zls
   ];
 
   # Optional: Shell hook for custom actions

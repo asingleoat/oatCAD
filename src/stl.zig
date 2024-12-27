@@ -201,6 +201,31 @@ pub fn length(p: Polyline) f32 {
     return total;
 }
 
+pub const PolylineList = struct {
+    lines: []Polyline,
+    pub fn toJson(self: PolylineList, allocator: std.mem.Allocator) ![]u8 {
+        var list = std.ArrayList(u8).init(allocator);
+        defer list.deinit();
+        var writer = list.writer();
+
+        _ = try writer.write("{ \"modelType\": \"line\", \"lines\": [");
+        // Write vertices
+        for (self.lines, 0..) |line, j| {
+            if (j != 0) try writer.writeByte(',');
+            _ = try writer.write("[");
+            for (line.verts, 0..) |vert, i| {
+                if (i != 0) try writer.writeByte(',');
+                try std.fmt.format(writer, "{d},{d},{d}", .{ vert.x, vert.y, vert.z });
+            }
+            _ = try writer.write("]");
+        }
+        _ = try writer.write("]}");
+
+        const jsonPayload = list.toOwnedSlice();
+        return jsonPayload;
+    }
+};
+
 pub const Polyline = struct {
     verts: []V3,
     pub fn move(self: Polyline, vec: V3) void {
