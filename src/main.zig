@@ -6,6 +6,7 @@ const model = @import("model.zig");
 const ws = @import("websocket.zig");
 const stl = @import("stl.zig");
 const tree = @import("binary_tree.zig");
+const seidel = @import("seidel.zig");
 
 pub fn loftPayload(allocator: std.mem.Allocator) ![]u8 {
     // hardcoded tetrahedron test
@@ -22,7 +23,7 @@ pub fn loftPayload(allocator: std.mem.Allocator) ![]u8 {
     // const jsonPayload = try indexArray.toJson(allocator);
 
     const start_time = std.time.nanoTimestamp();
-    const samples: u32 = 400000;
+    const samples: u32 = 6;
     const polyline = try stl.circle(allocator, 1, samples);
     polyline.move(stl.V3{ .x = 0, .y = 0, .z = 0.0 });
     const resampledPolyline = try stl.resample(allocator, polyline, samples - 1);
@@ -31,7 +32,7 @@ pub fn loftPayload(allocator: std.mem.Allocator) ![]u8 {
     const elapsed_time = end_time - start_time;
     std.debug.print("Elapsed time: {d}ns\n", .{@divTrunc(elapsed_time, samples)});
 
-    const polylineBase = try stl.circle(allocator, 1, 4);
+    // const polylineBase = try stl.circle(allocator, 1, 4);
     // const resampledBase = try stl.resample(allocator, polylineBase, samples - 1);
 
     // std.debug.print("{any}\n", .{polyline.verts.len});
@@ -46,9 +47,9 @@ pub fn loftPayload(allocator: std.mem.Allocator) ![]u8 {
 
     // const indexArray = try stl.loft(allocator, resampledBase, resampledPolyline);
     // const jsonPayload = try resampledPolyline.toJson(allocator);
-    var line_list = try allocator.alloc(stl.Polyline, 2);
+    var line_list = try allocator.alloc(stl.Polyline, 1);
     line_list[0] = resampledPolyline;
-    line_list[1] = polylineBase;
+    // line_list[1] = polylineBase;
     const lines = stl.PolylineList{ .lines = line_list };
     const jsonPayload = try lines.toJson(allocator);
     // const jsonPayload = try resampledBase.toJson(allocator);
@@ -60,6 +61,9 @@ pub fn main() !void {
     var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = general_purpose_allocator.allocator();
 
+    std.debug.print("{s}\n", .{seidel.forced_dependency});
+    const t: u32 = @shlExact(1, 31);
+    std.debug.print("{b}\n", .{t});
     // var prng = std.rand.DefaultPrng.init(blk: {
     //     var seed: u64 = undefined;
     //     try std.posix.getrandom(std.mem.asBytes(&seed));
