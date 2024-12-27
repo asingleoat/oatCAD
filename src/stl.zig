@@ -112,30 +112,26 @@ pub fn concat(allocator: *std.mem.Allocator, a: Stl, b: Stl) !Stl {
     return joined_stl;
 }
 
-// TODO: shouldn't need dynamic arrays
 // n.b.: closed polylines have duplicate first-last vertices,
 // so .verts.len == segments + 1
 pub fn circle(allocator: std.mem.Allocator, radius: f32, segments: u32) !Polyline {
-    var vertexList = std.ArrayList(V3).init(allocator);
-    defer vertexList.deinit();
+    var vertex_list = try allocator.alloc(V3, segments + 1);
 
-    var vertex: V3 = V3{ .x = 0, .y = 0, .z = 0 };
     const fsegments: f32 = @floatFromInt(segments);
     const angle_step: f32 = (2 * math.pi) / fsegments;
-    var angle: f32 = 0;
-    while (angle < (2 * math.pi - (angle_step / 2))) {
-        vertex.x = radius * @cos(angle);
-        vertex.y = radius * @sin(angle);
-        try vertexList.append(vertex);
-        angle += angle_step;
+    var angle: f32 = undefined;
+    for (vertex_list, 0..) |*vertex, i| {
+        const fi: f32 = @floatFromInt(i);
+        angle = angle_step * fi;
+        vertex.*.x = radius * @cos(angle);
+        vertex.*.y = radius * @sin(angle);
     }
-    // close the polyline
-    vertex.x = radius * @cos(0.0);
-    vertex.y = radius * @sin(0.0);
-    try vertexList.append(vertex);
+    // close the polyline, redundant were it not for floating point imprecision
+    vertex_list[segments].x = radius * @cos(0.0);
+    vertex_list[segments].y = radius * @sin(0.0);
 
     return .{
-        .verts = try vertexList.toOwnedSlice(),
+        .verts = vertex_list,
     };
 }
 

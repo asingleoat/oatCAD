@@ -21,11 +21,17 @@ pub fn loftPayload(allocator: std.mem.Allocator) ![]u8 {
     // std.debug.print("sample vert: {any}\n", .{(indexArray.verts[0])});
     // const jsonPayload = try indexArray.toJson(allocator);
 
-    const samples: u32 = 40;
+    const start_time = std.time.nanoTimestamp();
+    const samples: u32 = 400000;
     const polyline = try stl.circle(allocator, 1, samples);
     polyline.move(stl.V3{ .x = 0, .y = 0, .z = 0.0 });
-    const polylineBase = try stl.circle(allocator, 1, 4);
     const resampledPolyline = try stl.resample(allocator, polyline, samples - 1);
+
+    const end_time = std.time.nanoTimestamp();
+    const elapsed_time = end_time - start_time;
+    std.debug.print("Elapsed time: {d}ns\n", .{@divTrunc(elapsed_time, samples)});
+
+    const polylineBase = try stl.circle(allocator, 1, 4);
     // const resampledBase = try stl.resample(allocator, polylineBase, samples - 1);
 
     // std.debug.print("{any}\n", .{polyline.verts.len});
