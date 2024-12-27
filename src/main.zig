@@ -25,7 +25,7 @@ pub fn loftPayload(allocator: std.mem.Allocator) ![]u8 {
     const start_time = std.time.nanoTimestamp();
     const samples: u32 = 6;
     const polyline = try stl.circle(allocator, 1, samples);
-    polyline.move(stl.V3{ .x = 0, .y = 0, .z = 0.0 });
+    polyline.move(stl.V3{ 0, 0, 0 });
     const resampledPolyline = try stl.resample(allocator, polyline, samples - 1);
 
     const end_time = std.time.nanoTimestamp();

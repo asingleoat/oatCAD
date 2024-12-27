@@ -1,48 +1,24 @@
 const std = @import("std");
 const math = std.math;
 
-pub fn Vec3(comptime T: type) type {
-    return packed struct {
-        x: T,
-        y: T,
-        z: T,
+pub const V3 = @Vector(3, f32);
+pub const IntV3 = @Vector(3, u32);
 
-        pub fn lessThan(self: @This(), other: @This()) bool {
-            if (self.x < other.x) return true;
-            if (self.x > other.x) return false;
-
-            if (self.y < other.y) return true;
-            if (self.y > other.y) return false;
-
-            return self.z < other.z;
-        }
-
-        pub fn add(self: @This(), other: @This()) @This() {
-            return @This(){
-                .x = self.x + other.x,
-                .y = self.y + other.y,
-                .z = self.z + other.z,
-            };
-        }
-        pub fn quadrance(self: @This(), other: @This()) T {
-            return ((self.x - other.x) * (self.x - other.x) + (self.y - other.y) * (self.y - other.y) + (self.z - other.z) * (self.z - other.z));
-        }
-        pub fn distance(self: @This(), other: @This()) T {
-            return @sqrt((self.x - other.x) * (self.x - other.x) + (self.y - other.y) * (self.y - other.y) + (self.z - other.z) * (self.z - other.z));
-        }
-        pub fn interpolate(self: @This(), other: @This(), coeff: T) @This() {
-            return @This(){
-                .x = coeff * self.x + (1 - coeff) * other.x,
-                .y = coeff * self.y + (1 - coeff) * other.y,
-                .z = coeff * self.z + (1 - coeff) * other.z,
-            };
-        }
-    };
+pub fn distance(v: V3, w: V3) f32 {
+    return @sqrt((v[0] - w[0]) * (v[0] - w[0]) + (v[1] - w[1]) * (v[1] - w[1]) + (v[2] - w[2]) * (v[2] - w[2]));
 }
 
-pub const V3 = Vec3(f32);
-pub const IntV3 = Vec3(u32);
+pub fn quadrance(v: V3, w: V3) f32 {
+    return ((v[0] - w[0]) * (v[0] - w[0]) + (v[1] - w[1]) * (v[1] - w[1]) + (v[2] - w[2]) * (v[2] - w[2]));
+}
 
+pub fn interpolate(v: V3, w: V3, coeff: f32) V3 {
+    return V3{
+        coeff * v[0] + (1 - coeff) * w[0],
+        coeff * v[1] + (1 - coeff) * w[1],
+        coeff * v[2] + (1 - coeff) * w[2],
+    };
+}
 pub const Tri = packed struct {
     n: V3,
     a: V3,
@@ -57,10 +33,10 @@ pub const TriSimple = packed struct {
     c: V3,
 };
 
-pub const va: V3 = V3{ .x = @sqrt(8.0) / 3.0, .y = 0.0, .z = -1.0 / 3.0 };
-pub const vb: V3 = V3{ .x = @sqrt(2.0) / -3.0, .y = @sqrt(2.0 / 3.0), .z = -1.0 / 3.0 };
-pub const vc: V3 = V3{ .x = @sqrt(2.0) / -3.0, .y = -@sqrt(2.0 / 3.0), .z = -1.0 / 3.0 };
-pub const vd: V3 = V3{ .x = 0.0, .y = 0.0, .z = 1.0 };
+pub const va: V3 = V3{ @sqrt(8.0) / 3.0, 0.0, -1.0 / 3.0 };
+pub const vb: V3 = V3{ @sqrt(2.0) / -3.0, @sqrt(2.0 / 3.0), -1.0 / 3.0 };
+pub const vc: V3 = V3{ @sqrt(2.0) / -3.0, -@sqrt(2.0 / 3.0), -1.0 / 3.0 };
+pub const vd: V3 = V3{ 0.0, 0.0, 1.0 };
 
 pub const unitTet = [_]f32{
     @sqrt(8.0) / 3.0,  0.0,               -1.0 / 3.0,
@@ -123,12 +99,12 @@ pub fn circle(allocator: std.mem.Allocator, radius: f32, segments: u32) !Polylin
     for (vertex_list, 0..) |*vertex, i| {
         const fi: f32 = @floatFromInt(i);
         angle = angle_step * fi;
-        vertex.*.x = radius * @cos(angle);
-        vertex.*.y = radius * @sin(angle);
+        vertex.*[0] = radius * @cos(angle);
+        vertex.*[1] = radius * @sin(angle);
     }
     // close the polyline, redundant were it not for floating point imprecision
-    vertex_list[segments].x = radius * @cos(0.0);
-    vertex_list[segments].y = radius * @sin(0.0);
+    vertex_list[segments][0] = radius * @cos(0.0);
+    vertex_list[segments][1] = radius * @sin(0.0);
 
     return .{
         .verts = vertex_list,
@@ -177,10 +153,10 @@ pub fn resample(allocator: std.mem.Allocator, p: Polyline, segments: u32) !Polyl
             while (target > dist) {
                 j += 1;
                 j = @min(j, p.verts.len - 1);
-                dist += p.verts[j].distance(p.verts[j - 1]);
+                dist += distance(p.verts[j], p.verts[j - 1]);
             }
-            const c = (dist - target) / p.verts[j].distance(p.verts[j - 1]);
-            resampledVerts[i] = p.verts[j].interpolate(p.verts[j - 1], (1 - c));
+            const c = (dist - target) / distance(p.verts[j], p.verts[j - 1]);
+            resampledVerts[i] = interpolate(p.verts[j], p.verts[j - 1], (1 - c));
         }
         resampledVerts[0] = p.verts[0];
         resampledVerts[segments] = p.verts[0];
@@ -192,7 +168,7 @@ pub fn resample(allocator: std.mem.Allocator, p: Polyline, segments: u32) !Polyl
 pub fn length(p: Polyline) f32 {
     var total: f32 = 0;
     for (0..p.verts.len - 1) |i| {
-        total += p.verts[i].distance(p.verts[i + 1]);
+        total += distance(p.verts[i], p.verts[i + 1]);
     }
     return total;
 }
@@ -211,7 +187,7 @@ pub const PolylineList = struct {
             _ = try writer.write("[");
             for (line.verts, 0..) |vert, i| {
                 if (i != 0) try writer.writeByte(',');
-                try std.fmt.format(writer, "{d},{d},{d}", .{ vert.x, vert.y, vert.z });
+                try std.fmt.format(writer, "{d},{d},{d}", .{ vert[0], vert[1], vert[2] });
             }
             _ = try writer.write("]");
         }
@@ -226,7 +202,7 @@ pub const Polyline = struct {
     verts: []V3,
     pub fn move(self: Polyline, vec: V3) void {
         for (self.verts) |*vert| {
-            vert.* = vert.*.add(vec);
+            vert.* = vert.* + vec;
         }
     }
 
@@ -267,7 +243,7 @@ pub const IndexArray = struct {
         // Write vertices
         for (self.verts, 0..) |vert, i| {
             if (i != 0) try writer.writeByte(',');
-            try std.fmt.format(writer, "{d},{d},{d}", .{ vert.x, vert.y, vert.z });
+            try std.fmt.format(writer, "{d},{d},{d}", .{ vert[0], vert[1], vert[2] });
         }
         _ = try writer.write("], \"indices\": [");
 
