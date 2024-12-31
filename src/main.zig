@@ -8,7 +8,7 @@ const stl = @import("stl.zig");
 const tree = @import("binary_tree.zig");
 const seidel = @import("seidel.zig");
 
-pub fn loftPayload(allocator: std.mem.Allocator) ![]u8 {
+pub fn loftPayload(allocator: *std.mem.Allocator) ![]u8 {
     // hardcoded tetrahedron test
     // const indexArray = try stl.convertToIndexedArray(allocator, &model.unitTetTries);
     // const jsonPayload = try indexArray.toJson(allocator);
@@ -22,15 +22,15 @@ pub fn loftPayload(allocator: std.mem.Allocator) ![]u8 {
     // std.debug.print("sample vert: {any}\n", .{(indexArray.verts[0])});
     // const jsonPayload = try indexArray.toJson(allocator);
 
-    const start_time = std.time.nanoTimestamp();
-    const samples: u32 = 6;
-    const polyline = try stl.circle(allocator, 1, samples);
-    polyline.move(stl.V3{ 0, 0, 0 });
-    const resampledPolyline = try stl.resample(allocator, polyline, samples - 1);
+    // const start_time = std.time.nanoTimestamp();
+    // const samples: u32 = 6;
+    // const polyline = try stl.circle(allocator, 1, samples);
+    // polyline.move(stl.V3{ 0, 0, 0 });
+    // const resampledPolyline = try stl.resample(allocator, polyline, samples - 1);
 
-    const end_time = std.time.nanoTimestamp();
-    const elapsed_time = end_time - start_time;
-    std.debug.print("Elapsed time: {d}ns\n", .{@divTrunc(elapsed_time, samples)});
+    // const end_time = std.time.nanoTimestamp();
+    // const elapsed_time = end_time - start_time;
+    // std.debug.print("Elapsed time: {d}ns\n", .{@divTrunc(elapsed_time, samples)});
 
     // const polylineBase = try stl.circle(allocator, 1, 4);
     // const resampledBase = try stl.resample(allocator, polylineBase, samples - 1);
@@ -47,10 +47,35 @@ pub fn loftPayload(allocator: std.mem.Allocator) ![]u8 {
 
     // const indexArray = try stl.loft(allocator, resampledBase, resampledPolyline);
     // const jsonPayload = try resampledPolyline.toJson(allocator);
-    var line_list = try allocator.alloc(stl.Polyline, 1);
-    line_list[0] = resampledPolyline;
+    var lines = stl.PolylineList.init(allocator);
+    var p = try stl.circle(allocator, 1, 6);
+    // try lines.lines.append(resampledPolyline);
+    try lines.lines.append(p);
+
+    std.debug.print("{s}\n", .{seidel.forced_dependency});
+    // const t: u32 = @shlExact(1, 31);
+    // std.debug.print("{b}\n", .{t});
+    var traps = try seidel.TrapezoidStructure.init(allocator, &p.verts, 6);
+    // std.debug.print("{any}\n", .{traps.trapezoids[0]});
+    traps.insert_edge(seidel.Edge{ .source = 0, .sink = 1 });
+    traps.insert_edge(seidel.Edge{ .source = 1, .sink = 2 });
+    // traps.insert_vertex(1);
+    // std.debug.print("{any}\n", .{traps.trapezoids[0]});
+    std.debug.print("{any}\n", .{traps.searchTree.nodes[0]});
+    std.debug.print("{any}\n", .{traps.searchTree.nodes[1]});
+    std.debug.print("{any}\n\n", .{traps.searchTree.nodes[2]});
+    std.debug.print("{any}\n\n", .{traps.trapezoids[0]});
+    std.debug.print("{any}\n\n", .{traps.trapezoids[1]});
+    std.debug.print("{any}\n\n", .{traps.trapezoids[2]});
+
+    try seidel.renderTrapezoid(allocator, &lines, &traps, 0);
+    try seidel.renderTrapezoid(allocator, &lines, &traps, 1);
+    try seidel.renderTrapezoid(allocator, &lines, &traps, 2);
+    try seidel.renderTrapezoid(allocator, &lines, &traps, 3);
+    // try lines.lines.append(try seidel.renderHorz(allocator, stl.va));
+    // try lines.lines.append(try seidel.renderSegment(allocator, stl.va, stl.vb));
     // line_list[1] = polylineBase;
-    const lines = stl.PolylineList{ .lines = line_list };
+    // const lines = stl.PolylineList{ .lines = line_list };
     const jsonPayload = try lines.toJson(allocator);
     // const jsonPayload = try resampledBase.toJson(allocator);
     // const jsonPayload = try indexArray.toJson(allocator);
@@ -59,11 +84,8 @@ pub fn loftPayload(allocator: std.mem.Allocator) ![]u8 {
 
 pub fn main() !void {
     var general_purpose_allocator = std.heap.GeneralPurposeAllocator(.{}){};
-    const allocator = general_purpose_allocator.allocator();
+    var allocator = general_purpose_allocator.allocator();
 
-    std.debug.print("{s}\n", .{seidel.forced_dependency});
-    const t: u32 = @shlExact(1, 31);
-    std.debug.print("{b}\n", .{t});
     // var prng = std.rand.DefaultPrng.init(blk: {
     //     var seed: u64 = undefined;
     //     try std.posix.getrandom(std.mem.asBytes(&seed));
@@ -73,7 +95,7 @@ pub fn main() !void {
 
     // try tree.triangulate(allocator, rand, polyline);
 
-    const jsonPayload = try loftPayload(allocator);
+    const jsonPayload = try loftPayload(&allocator);
     defer allocator.free(jsonPayload);
 
     var context = ws.Context{

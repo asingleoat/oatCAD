@@ -4,6 +4,24 @@ const math = std.math;
 pub const V3 = @Vector(3, f32);
 pub const IntV3 = @Vector(3, u32);
 
+// lexicographic strict less than
+pub fn lt(v: V3, w: V3) bool {
+    if (v[0] < w[0]) {
+        return true;
+    } else if (v[0] > w[0]) {
+        return false;
+    } else if (v[1] < w[1]) {
+        return true;
+    } else if (v[1] > w[1]) {
+        return false;
+    } else if (v[2] < w[2]) {
+        return true;
+    } else return false;
+    // else if (v[2] > w[2]) {
+    // return false;
+    // }
+}
+
 pub fn distance(v: V3, w: V3) f32 {
     return @sqrt((v[0] - w[0]) * (v[0] - w[0]) + (v[1] - w[1]) * (v[1] - w[1]) + (v[2] - w[2]) * (v[2] - w[2]));
 }
@@ -90,8 +108,8 @@ pub fn concat(allocator: *std.mem.Allocator, a: Stl, b: Stl) !Stl {
 
 // n.b.: closed polylines have duplicate first-last vertices,
 // so .verts.len == segments + 1
-pub fn circle(allocator: std.mem.Allocator, radius: f32, segments: u32) !Polyline {
-    var vertex_list = try allocator.alloc(V3, segments + 1);
+pub fn circle(allocator: *std.mem.Allocator, radius: f32, segments: u32) !Polyline {
+    var vertex_list = try allocator.*.alloc(V3, segments + 1);
 
     const fsegments: f32 = @floatFromInt(segments);
     const angle_step: f32 = (2 * math.pi) / fsegments;
@@ -134,14 +152,14 @@ pub fn loft(allocator: std.mem.Allocator, base: Polyline, target: Polyline) !Ind
     return convertToIndexedArray(allocator, triSlice);
 }
 
-pub fn resample(allocator: std.mem.Allocator, p: Polyline, segments: u32) !Polyline {
+pub fn resample(allocator: *std.mem.Allocator, p: Polyline, segments: u32) !Polyline {
     // closed polyline has one more vertex than it has line segments
     if (p.verts.len == segments + 1) {
         return p;
     } else {
         // allocate one extra for the closing part,
         // maybe should make that caller responsibility?
-        const resampledVerts = try allocator.alloc(V3, segments + 1);
+        const resampledVerts = try allocator.*.alloc(V3, segments + 1);
         const portion: f32 = @floatFromInt(segments);
         const step: f32 = length(p) / portion;
         var target: f32 = 0;
@@ -175,15 +193,19 @@ pub fn length(p: Polyline) f32 {
 
 // TODO: serialization types should live in a different module
 pub const PolylineList = struct {
-    lines: []Polyline,
-    pub fn toJson(self: PolylineList, allocator: std.mem.Allocator) ![]u8 {
-        var list = std.ArrayList(u8).init(allocator);
+    lines: std.ArrayList(Polyline),
+    pub fn init(allocator: *std.mem.Allocator) PolylineList {
+        const lines = std.ArrayList(Polyline).init(allocator.*);
+        return PolylineList{ .lines = lines };
+    }
+    pub fn toJson(self: PolylineList, allocator: *std.mem.Allocator) ![]u8 {
+        var list = std.ArrayList(u8).init(allocator.*);
         defer list.deinit();
         var writer = list.writer();
 
         _ = try writer.write("{ \"modelType\": \"line\", \"lines\": [");
         // Write vertices
-        for (self.lines, 0..) |line, j| {
+        for (self.lines.items, 0..) |line, j| {
             if (j != 0) try writer.writeByte(',');
             _ = try writer.write("[");
             for (line.verts, 0..) |vert, i| {
@@ -201,6 +223,14 @@ pub const PolylineList = struct {
 
 pub const Polyline = struct {
     verts: []V3,
+
+    pub fn init(allocator: *std.mem.Allocator, numVertices: u32) !Polyline {
+        const verts = try allocator.alloc(V3, numVertices);
+        return Polyline{
+            .verts = verts,
+        };
+    }
+
     pub fn move(self: Polyline, vec: V3) void {
         for (self.verts) |*vert| {
             vert.* = vert.* + vec;
