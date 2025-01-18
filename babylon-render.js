@@ -8,6 +8,20 @@ scene.clearColor = new BABYLON.Color4(0.8, 0.8, 0.8, 1);       // Light gray wit
 
 const camera = new BABYLON.ArcRotateCamera("Camera", Math.PI / 2, Math.PI / 2, 5, BABYLON.Vector3.Zero(), scene);
 camera.attachControl(canvas, true);
+camera.mode = BABYLON.Camera.ORTHOGRAPHIC_CAMERA;
+function updateCameraAspect(camera, canvas) {
+    const aspectRatio = canvas.width / canvas.height;
+    const viewHeight = 10; // Total height of the orthographic view (orthoTop - orthoBottom)
+    
+    camera.orthoTop = viewHeight / 2;
+    camera.orthoBottom = -viewHeight / 2;
+    camera.orthoLeft = -viewHeight / 2 * aspectRatio;
+    camera.orthoRight = viewHeight / 2 * aspectRatio;
+}
+// Set the initial aspect ratio
+updateCameraAspect(camera, canvas);
+
+enableOrthographicZoom(camera, canvas, 0.1);
 
 const pipeline = new BABYLON.DefaultRenderingPipeline("default", true, scene, [camera]);
 // msaa
@@ -28,13 +42,11 @@ function renderModel(data) {
         break;
     default:
         updateMesh(data);
-        console.log("fallthrough");
+        console.error("Unknown modelType:", jsonData.modelType);
         break;
-        // console.error("Unknown modelType:", jsonData.modelType);
     }
 }
 
-// polyline handler
 const dynamicLines = [];
 function updatePolylines(data) {
     const newPolylines = data.lines;
@@ -43,30 +55,54 @@ function updatePolylines(data) {
     for (const line of dynamicLines) {
         line.dispose();
     }
-    dynamicLines.length = 0; // Clear the array
+    dynamicLines.length = 0;
 
-    // Render the new polylines
     for (const polylineData of newPolylines) {
         const flatVertices = new Float32Array(polylineData);
 
-        // Validate the data
-        // if (flatVertices.length % 3 !== 0 || flatVertices.length < 6) {
-            // console.error("Invalid vertex data length:", flatVertices.length);
-            // continue;
-        // }
-
-        // Convert flat vertices into BABYLON.Vector3 points
         const points = unflattenVertices(flatVertices);
 
-        // Create and store the new polyline
         const line = BABYLON.MeshBuilder.CreateLines("dynamicLine", {
             points: points,
             updatable: true,
         }, scene);
-        line.color = new BABYLON.Color3(1, 0, 0); // Set line color
-        dynamicLines.push(line); // Store the line for future management
+        const baseColor = new BABYLON.Color3(0.8, 0.8, 0.8);
+        const randomColor = getRandomColorWithContrast(baseColor, 2.5);
+        line.color = randomColor;
+        dynamicLines.push(line);
     }
 
+}
+
+function getRandomColor() {
+    return new BABYLON.Color3(
+        Math.random(),
+        Math.random(),
+        Math.random()
+    );
+}
+
+function calculateContrast(color1, color2) {
+    const luminance = (color) => {
+        const r = color.r <= 0.03928 ? color.r / 12.92 : Math.pow((color.r + 0.055) / 1.055, 2.4);
+        const g = color.g <= 0.03928 ? color.g / 12.92 : Math.pow((color.g + 0.055) / 1.055, 2.4);
+        const b = color.b <= 0.03928 ? color.b / 12.92 : Math.pow((color.b + 0.055) / 1.055, 2.4);
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+
+    const l1 = luminance(color1) + 0.05;
+    const l2 = luminance(color2) + 0.05;
+
+    // contrast ratio
+    return l1 > l2 ? l1 / l2 : l2 / l1;
+}
+
+function getRandomColorWithContrast(baseColor, minContrast = 1.5) {
+    let color;
+    do {
+        color = getRandomColor();
+    } while (calculateContrast(color, baseColor) < minContrast);
+    return color;
 }
 
 function unflattenVertices(flatVertices) {
@@ -77,31 +113,29 @@ function unflattenVertices(flatVertices) {
     return grouped;
 }
 
-// 3d mesh handler
 let dynamicMesh;
 function updateMesh(data) {
 	const vertices = new Float32Array(data.vertices);
 	const indices = new Uint32Array(data.indices);
 	if (dynamicMesh) {
-		// Update existing mesh
+		// update existing mesh
 		const vertexData = new BABYLON.VertexData();
 		vertexData.positions = Array.from(vertices);
 		vertexData.indices = Array.from(indices);
 		vertexData.applyToMesh(dynamicMesh);
 	} else {
-		// Create new mesh
+		// create new mesh
 		const vertexData = new BABYLON.VertexData();
 		vertexData.positions = Array.from(vertices);
 		vertexData.indices = Array.from(indices);
 		dynamicMesh = new BABYLON.Mesh("dynamicMesh", scene);
 		vertexData.applyToMesh(dynamicMesh);
-		// Apply material with double-sided rendering
 		const material = new BABYLON.StandardMaterial("material", scene);
 		// material.diffuseColor = new BABYLON.Color3(1, 0, 0); // Red
 		material.diffuseColor = new BABYLON.Color3(0.094, 0.604, 0.706); // Red
     // weaken highlights
     material.specularColor = new BABYLON.Color3(0.2,0.2,0.2);
-		material.backFaceCulling = false; // Render both sides
+		// material.backFaceCulling = false;
 		dynamicMesh.material = material;
 	}
 }
@@ -141,11 +175,7 @@ function connectWebSocket() {
 	};
 }
 
-connectWebSocket();         // Initial connection attempt
-// scene.onPointerObservable.add(() => {
-//     isWireframe = !isWireframe;
-//     material.wireframe = isWireframe;
-// });
+connectWebSocket();
 
 let isWireframe = false;
 scene.onPointerObservable.add((pointerInfo) => {
@@ -161,11 +191,25 @@ scene.onPointerObservable.add((pointerInfo) => {
     }
 });
 
-// Render loop
 engine.runRenderLoop(() => {
 	scene.render();
 });
-// Resize event
+
 window.addEventListener('resize', () => {
-	engine.resize();
+	  engine.resize();
+    updateCameraAspect(camera, canvas);
 });
+
+function enableOrthographicZoom(camera, canvas, zoomSpeed = 0.1) {
+    canvas.addEventListener("wheel", function (event) {
+        event.preventDefault();
+
+        const delta = event.deltaY > 0 ? 1 : -1; // Scroll direction
+        const zoomFactor = 1 + delta * zoomSpeed;
+
+        camera.orthoLeft *= zoomFactor;
+        camera.orthoRight *= zoomFactor;
+        camera.orthoTop *= zoomFactor;
+        camera.orthoBottom *= zoomFactor;
+    });
+}
