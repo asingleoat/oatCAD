@@ -6,6 +6,7 @@ in
 pkgs.mkShell {
   buildInputs = base.buildInputs ++ [
     pkgs.git
+    pkgs.graphviz
     pkgs.entr
     pkgs.html-tidy
     # language agnostic formatter $ uncrustify -c /dev/null --replace babylon-render.js
