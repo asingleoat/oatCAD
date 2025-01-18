@@ -8,6 +8,7 @@ pkgs.mkShell {
     pkgs.git
     pkgs.graphviz
     pkgs.entr
+    pkgs.feh
     pkgs.html-tidy
     # language agnostic formatter $ uncrustify -c /dev/null --replace babylon-render.js
     pkgs.uncrustify

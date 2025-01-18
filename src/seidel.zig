@@ -5,8 +5,8 @@
 
 // note for readers: the implementation implicitly regards vertex[0] as the y-component and
 // vertex[1] as the x-component when using the terminology from the paper. This is just so that
-// stl.lt (less than) can be the expected lexicographic definition. users of this module don't have
-// to care about this, in effect we apply seidel's algorithm from left to right instead of top to
+// stl.lte (less than) can be the expected lexicographic definition. users of this module don't have
+// to care about this, in effect we apply seidel's algorithm from right to left instead of top to
 // bottom, but either way we get a triangulation out the end.
 
 // we work exclusively with V3s, but ignore the z-component. if you want to triangulate a
@@ -37,29 +37,29 @@ pub fn renderHorz(allocator: *std.mem.Allocator, vert: stl.V3) !stl.Polyline {
     return line;
 }
 
-pub fn renderSegment(allocator: *std.mem.Allocator, v: stl.V3, u: stl.V3) !stl.Polyline {
+pub fn renderSegment(allocator: *std.mem.Allocator, p: *stl.PolylineList, v: stl.V3, u: stl.V3) !void {
     var line = try stl.Polyline.init(allocator, 2);
     // set "y-component" (actually x, but in this model treated as y) and z to match source
     line.verts[0] = v;
     line.verts[1] = u;
-    return line;
+    try p.lines.append(line);
 }
 
 pub fn renderTrapezoid(allocator: *std.mem.Allocator, p: *stl.PolylineList, t: *TrapezoidStructure, i: u32) !void {
     const ti = t.trapezoids[i];
-    std.debug.print("\n\ntrap: {any}\n\n", .{t.trapezoids[0]});
+    // std.debug.print("\n\ntrap: {any}\n\n", .{t.trapezoids[0]});
     if (validIndex(ti.v_upper)) {
-        std.debug.print("\n\n vertex: {any}\n\n", .{t.vertices.*[ti.v_upper]});
+        // std.debug.print("\n\n vertex: {any}\n\n", .{t.vertices.*[ti.v_upper]});
         try p.lines.append(try renderHorz(allocator, t.vertices.*[ti.v_upper]));
     }
     if (validIndex(ti.v_lower)) {
         try p.lines.append(try renderHorz(allocator, t.vertices.*[ti.v_lower]));
     }
     if (validIndex(ti.e_left.source)) {
-        try p.lines.append(try renderSegment(allocator, t.vertices.*[ti.e_left.source], t.vertices.*[ti.e_left.sink]));
+        try renderSegment(allocator, p, t.vertices.*[ti.e_left.source], t.vertices.*[ti.e_left.sink]);
     }
     if (validIndex(ti.e_right.source)) {
-        try p.lines.append(try renderSegment(allocator, t.vertices.*[ti.e_right.source], t.vertices.*[ti.e_right.sink]));
+        try renderSegment(allocator, p, t.vertices.*[ti.e_right.source], t.vertices.*[ti.e_right.sink]);
     }
 }
 
@@ -175,6 +175,8 @@ pub const TrapezoidStructure = struct {
         self.trapezoids[self.nextIndex] = trapezoid;
         self.nextIndex += 1;
     }
+    // inserting a vertex always splits an existing trapezoid into two across the horizontal line going through the vertex
+    // this function takes a vertex, splits the existing trapezoid that vertex was contained in and updates the query tree
     pub fn insert_vertex(self: *TrapezoidStructure, v: u32) void {
         if (self.included[v]) {} else {
             self.included[v] = true;
@@ -201,8 +203,9 @@ pub const TrapezoidStructure = struct {
                 .node = self.searchTree.nextIndex,
                 // inside: bool,
             };
-            // we'll replace the old trapezoid with this one TODO
+            // we'll replace the old trapezoid with this one
             self.trapezoids[t] = upper_trapezoid;
+
             const lower_trapezoid = Trapezoid{
                 // inserted vertex becomes upper bound of lower split trap
                 .v_upper = v,
@@ -210,7 +213,7 @@ pub const TrapezoidStructure = struct {
                 .e_left = located.e_left,
                 .e_right = located.e_right,
                 // new lower trap has only one upper neighbor, the new upper trap
-                .n_upper_left = t + 1,
+                .n_upper_left = t,
                 .n_upper_right = invalid,
                 .n_lower_left = located.n_lower_left,
                 .n_lower_right = located.n_lower_right,
@@ -249,21 +252,119 @@ pub const TrapezoidStructure = struct {
                 .left_child = invalid,
                 .right_child = invalid,
             };
-            // _ = lower_node;
-            // _ = upper_node;
-            self.searchTree.insert_node(lower_node); // left_child of replaced node
-            self.searchTree.insert_node(upper_node); // right_child of replaced node
+            self.searchTree.insert_node(upper_node); // left_child of replaced node
+            self.searchTree.insert_node(lower_node); // right_child of replaced node
         }
     }
+
+    pub fn split_trap_with_segment(self: *TrapezoidStructure, v: u32, u: u32, t: u32) void {
+        const to_split = self.trapezoids[t];
+        const left_trapezoid = Trapezoid{
+            // inserted vertex becomes upper bound of lower split trap
+            .v_upper = to_split.v_upper,
+            .v_lower = to_split.v_lower,
+            .e_left = to_split.e_left,
+            .e_right = Edge{ .source = v, .sink = u },
+            // new traps inherit one or both of the source's neighbors, I believe it's safe to
+            // over-inherit since the only purposes of neighbor information are: splitting traps
+            // when inserting segments and tracing C to determine vertex-trap membership. We already
+            // do the necessary checks in each of those functions.
+            .n_upper_left = to_split.n_upper_left,
+            .n_upper_right = to_split.n_upper_right,
+            .n_lower_left = to_split.n_lower_left,
+            .n_lower_right = to_split.n_lower_right,
+            // first split replaces old trap
+            .node = to_split.node,
+            // inside: bool,
+        };
+        _ = left_trapezoid;
+    }
     pub fn insert_segment(self: *TrapezoidStructure, v: u32, u: u32) void {
+        // location in the query structure of the y-node corresponding to the vertex v. since we
+        // just inserted v and u before calling insert_segment (and since v is above u) this
+        // location is the actual location of the y-node corresponding to the vertex in the query
+        // structure
         const v_y_node = self.y_nodes[v];
         const u_y_node = self.y_nodes[u];
-        std.debug.print("y-node: {X}\n", .{v_y_node});
-        std.debug.print("{X}\n", .{u_y_node});
+        _ = u_y_node;
+        std.debug.print("index of y-node of vertex {d} is {d}\n", .{ v, v_y_node });
+        // std.debug.print("{d}\n", .{u_y_node});
         const y_node = self.searchTree.nodes[v_y_node];
-        std.debug.print("{any}\n\n", .{y_node});
-        std.debug.print("v_0 valid? {any}\n", .{validIndex(y_node.v_0)});
-        std.debug.print("v_1 valid? {any}\n\n", .{validIndex(y_node.v_1)});
+
+        std.debug.print("y-node {d} is {any}\n\n", .{ v_y_node, y_node });
+        std.debug.print("Left Child: {any}\n\n", .{self.searchTree.nodes[y_node.left_child]});
+        std.debug.print("Right Child: {any}\n\n", .{self.searchTree.nodes[y_node.right_child]});
+
+        // const leftChild = self.searchTree.nodes[y_node.left_child];
+        // const leftTrap = self.trapezoids[leftChild.v_0];
+        // std.debug.print("left trap: {any}\n\n", .{leftTrap});
+
+        // const y_node_12 = self.searchTree.nodes[12];
+        // std.debug.print("{any}\n\n", .{y_node_12});
+
+        // const old_trapezoid = self.trapezoids[y_node.v_1];
+
+        // thread through traps from top to bottom
+
+        // split trap below upper endpoint
+        // TODO placeholder struct instance, all values wrong
+        // next action: figure out how neighbors split
+        // const left_trapezoid = Trapezoid{
+        //     // top and bottom are unchanged after split
+        //     .v_upper = old_trapezoid.v_upper,
+        //     .v_lower = old_trapezoid.v_lower,
+        //     // retain old left edge
+        //     .e_left = old_trapezoid.e_left,
+        //     // inserted segment becomes new right edge
+        //     .e_right = Edge{ .source = v, .sink = u, },
+        //     // regardless of segment position, the old upper {left,right} neighbor remains the upper
+        //     // {left,right} neighbor of the {left,right} half of the split, resp.
+        //     .n_upper_left = old_trapezoid.n_upper_left,
+
+        //     .n_upper_right = if (isLeftOf(
+        //         vertices.*[self.nodes[search_node].v],
+        //         vertices.*[self.nodes[search_node].u],
+        //         vertices.*[v],
+        //     )) {}
+        //     else {
+        //         located.n_upper_right,
+        //     }
+        //     // new upper trap has only one lower neighbor, the new lower trap which is about to be inserted
+        //     .n_lower_left = self.nextIndex,
+        //     .n_lower_right = invalid,
+        //     // each new trap gets a new search tree node
+        //     .node = self.searchTree.nextIndex,
+        //     // inside: bool,
+        // };
+        // // TODO placeholder struct instance, all values wrong
+        // self.trapezoids[t] = upper_trapezoid;
+        // const right_trapezoid = Trapezoid{
+        //     // inserted vertex becomes upper bound of lower split trap
+        //     .v_upper = v,
+        //     .v_lower = located.v_lower,
+        //     .e_left = located.e_left,
+        //     .e_right = located.e_right,
+        //     // new lower trap has only one upper neighbor, the new upper trap
+        //     .n_upper_left = t + 1,
+        //     .n_upper_right = invalid,
+        //     .n_lower_left = located.n_lower_left,
+        //     .n_lower_right = located.n_lower_right,
+        //     // we'll insert this one into the search tree second
+        //     .node = self.searchTree.nextIndex + 1,
+        //     // inside: bool,
+        // };
+        // self.insert_trapezoid(lower_trapezoid);
+
+        // pub fn lookup(self: SearchTree, search_node: u32, v: u32, vertices: *[]stl.V3) u32 {
+        // const j = self.searchTree.lookup(0, v, self.vertices);
+        // std.debug.print("lookup vertex {d}, {any}: {d}\n\n", .{ v, self.vertices.*[v], j });
+        // std.debug.print("found: {any}\n\n", .{self.searchTree.nodes[j]});
+        // const q = 0;
+        // std.debug.print("y-level of {d}: {any}\n\n", .{ q, self.vertices.*[self.searchTree.nodes[q].v_1] });
+        // std.debug.print("found: {any}\n\n", .{self.searchTree.nodes[4]});
+
+        // const i: u32 = undefined;
+        // std.debug.print("i: {d}\n", .{i});
 
         // pub fn segmentCrossing(vUpper: stl.V3, vLower: stl.V3, vHorizontal: stl.V3) f32 {
         // const f = segmentCrossing(a,b,);
@@ -278,15 +379,23 @@ pub const TrapezoidStructure = struct {
     pub fn insert_edge(self: *TrapezoidStructure, edge: Edge) void {
         var a: u32 = undefined;
         var b: u32 = undefined;
-        if (stl.lt(self.vertices.*[edge.source], self.vertices.*[edge.sink])) {
-            a = edge.sink;
-            b = edge.source;
-        } else {
-            a = edge.source;
+        if (stl.lte(self.vertices.*[edge.source], self.vertices.*[edge.sink])) {
             b = edge.sink;
+            a = edge.source;
+        } else {
+            b = edge.source;
+            a = edge.sink;
         }
         self.insert_vertex(a);
         self.insert_vertex(b);
+        for (0..self.nextIndex) |i| {
+            std.debug.print("{any}\n\n", .{self.trapezoids[i]});
+        }
+
+        for (0..self.searchTree.nextIndex) |i| {
+            std.debug.print("{any}\n\n", .{self.searchTree.nodes[i]});
+        }
+
         // TODO
         // thread segment into trapezoid structure
         // need to find intersection of segment with horizontal line of neighboring traps, determine if that is left or right of vert representing horizontal line, recurse into appropriate left or right neighbor and split
@@ -307,18 +416,57 @@ pub const Node = struct {
     right_child: u32,
 };
 
+pub fn appendFormattedToFile(allocator: *std.mem.Allocator, path: []const u8, comptime format: []const u8, args: anytype) !void {
+    const content = try std.fmt.allocPrint(allocator.*, format, args);
+    defer allocator.free(content);
+
+    const file = try std.fs.cwd().openFile(path, .{
+        .mode = std.fs.File.OpenMode.write_only,
+    });
+    defer file.close();
+    try file.seekFromEnd(0);
+    try file.writeAll(content);
+}
+pub fn treeLog(allocator: *std.mem.Allocator, comptime format: []const u8, args: anytype) !void {
+    try appendFormattedToFile(allocator, "tree.dot", format, args);
+}
+
+pub fn printNode(allocator: *std.mem.Allocator, node: Node, i: u32) !void {
+    if (validIndex(node.v_0) and validIndex(node.v_1)) { // X-node
+        try treeLog(allocator, "    {d} [shape=\"box\"];\n", .{i});
+    } else if (validIndex(node.v_1)) { // Y-node
+        try treeLog(allocator, "    {d} [shape=\"house\"];\n", .{i});
+    } else if (validIndex(node.v_0)) { // leaf
+        try treeLog(allocator, "    {d} [shape=\"trapezium\"];\n", .{i});
+    } else {
+        try treeLog(allocator, "    {d} [label=\"root\",shape=\"box\"];\n", .{i});
+    }
+    if (validIndex(node.left_child)) {
+        try treeLog(allocator, "    {d} -- {d};\n", .{ i, node.left_child });
+    }
+    if (validIndex(node.right_child)) {
+        try treeLog(allocator, "    {d} -- {d};\n", .{ i, node.right_child });
+    }
+}
+
 pub const SearchTree = struct {
     nodes: []Node,
     nextIndex: u32,
 
+    pub fn printTree(self: *SearchTree, allocator: *std.mem.Allocator) !void {
+        const cwd = std.fs.cwd();
+        cwd.deleteFile("tree.dot") catch {};
+        const file = try cwd.createFile("tree.dot", .{});
+        defer file.close();
+        try treeLog(allocator, "graph graphname {{\n", .{});
+        for (0..self.nextIndex) |i| {
+            try printNode(allocator, self.nodes[i], @intCast(i));
+        }
+        try treeLog(allocator, "}}\n", .{});
+    }
+
     pub fn init(allocator: *std.mem.Allocator, numNodes: u32) !SearchTree {
         const nodes = try allocator.alloc(Node, numNodes);
-        // nodes[0] = Node{
-        //     .v_0 = invalid,
-        //     .v_1 = invalid,
-        //     .left_child = invalid,
-        //     .right_child = invalid,
-        // };
         return SearchTree{
             .nodes = nodes,
             .nextIndex = 1,
@@ -360,7 +508,7 @@ pub const SearchTree = struct {
             return self.nodes[search_node].v_0;
         } else {
             // Y Node
-            if (stl.lt(vertices.*[v], vertices.*[self.nodes[search_node].v_1])) {
+            if (stl.lte(vertices.*[v], vertices.*[self.nodes[search_node].v_1])) {
                 // below horizontal line
                 return self.lookup(self.nodes[search_node].left_child, v, vertices);
             } else {

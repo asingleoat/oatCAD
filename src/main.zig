@@ -48,30 +48,31 @@ pub fn loftPayload(allocator: *std.mem.Allocator) ![]u8 {
     // const indexArray = try stl.loft(allocator, resampledBase, resampledPolyline);
     // const jsonPayload = try resampledPolyline.toJson(allocator);
     var lines = stl.PolylineList.init(allocator);
-    var p = try stl.circle(allocator, 1, 6);
+    const sides = 30;
+    var p = try stl.circle(allocator, 1, sides);
+    for (p.verts) |*point| {
+        point.* = stl.rotate(point.*, stl.V3{ 0, 0, 1 }, 0.3);
+    }
     // try lines.lines.append(resampledPolyline);
-    try lines.lines.append(p);
 
     std.debug.print("{s}\n", .{seidel.forced_dependency});
     // const t: u32 = @shlExact(1, 31);
     // std.debug.print("{b}\n", .{t});
-    var traps = try seidel.TrapezoidStructure.init(allocator, &p.verts, 6);
+    var traps = try seidel.TrapezoidStructure.init(allocator, &p.verts, sides);
     // std.debug.print("{any}\n", .{traps.trapezoids[0]});
-    traps.insert_edge(seidel.Edge{ .source = 0, .sink = 1 });
-    traps.insert_edge(seidel.Edge{ .source = 1, .sink = 2 });
-    // traps.insert_vertex(1);
-    // std.debug.print("{any}\n", .{traps.trapezoids[0]});
-    std.debug.print("{any}\n", .{traps.searchTree.nodes[0]});
-    std.debug.print("{any}\n", .{traps.searchTree.nodes[1]});
-    std.debug.print("{any}\n\n", .{traps.searchTree.nodes[2]});
-    std.debug.print("{any}\n\n", .{traps.trapezoids[0]});
-    std.debug.print("{any}\n\n", .{traps.trapezoids[1]});
-    std.debug.print("{any}\n\n", .{traps.trapezoids[2]});
 
-    try seidel.renderTrapezoid(allocator, &lines, &traps, 0);
-    try seidel.renderTrapezoid(allocator, &lines, &traps, 1);
-    try seidel.renderTrapezoid(allocator, &lines, &traps, 2);
-    try seidel.renderTrapezoid(allocator, &lines, &traps, 3);
+    for (0..p.verts.len - 1) |i| {
+        traps.insert_edge(seidel.Edge{ .source = @intCast(i), .sink = @intCast((i + 1) % (p.verts.len - 1)) });
+    }
+    try traps.searchTree.printTree(allocator);
+
+    for (0..p.verts.len) |i| {
+        try seidel.renderTrapezoid(allocator, &lines, &traps, @intCast(i));
+    }
+    // try seidel.renderSegment(allocator, &lines, p.verts[0], p.verts[1]);
+    p.move(stl.V3{ 0, 1, 0.11 });
+    try lines.lines.append(p);
+
     // try lines.lines.append(try seidel.renderHorz(allocator, stl.va));
     // try lines.lines.append(try seidel.renderSegment(allocator, stl.va, stl.vb));
     // line_list[1] = polylineBase;
