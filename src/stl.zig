@@ -4,6 +4,45 @@ const math = std.math;
 pub const V3 = @Vector(3, f32);
 pub const IntV3 = @Vector(3, u32);
 
+pub fn rotate(p: V3, axis: V3, angle: f32) V3 {
+    const cos_half_angle = @cos(angle / 2);
+    const sin_half_angle = @sin(angle / 2);
+
+    // Normalize the axis
+    const axis_len = @sqrt(axis[0] * axis[0] + axis[1] * axis[1] + axis[2] * axis[2]);
+    const u = V3{
+        axis[0] / axis_len,
+        axis[1] / axis_len,
+        axis[2] / axis_len,
+    };
+
+    // Quaternion components
+    const qw = cos_half_angle;
+    const qx = u[0] * sin_half_angle;
+    const qy = u[1] * sin_half_angle;
+    const qz = u[2] * sin_half_angle;
+
+    // Compute rotated p
+    const ww = qw * qw;
+    const xx = qx * qx;
+    const yy = qy * qy;
+    const zz = qz * qz;
+
+    const wx = qw * qx;
+    const wy = qw * qy;
+    const wz = qw * qz;
+
+    const xy = qx * qy;
+    const xz = qx * qz;
+    const yz = qy * qz;
+
+    return V3{
+        (ww + xx - yy - zz) * p[0] + 2 * (xy - wz) * p[1] + 2 * (xz + wy) * p[2],
+        2 * (xy + wz) * p[0] + (ww - xx + yy - zz) * p[1] + 2 * (yz - wx) * p[2],
+        2 * (xz - wy) * p[0] + 2 * (yz + wx) * p[1] + (ww - xx - yy + zz) * p[2],
+    };
+}
+
 // lexicographic strict less than
 pub fn lt(v: V3, w: V3) bool {
     if (v[0] < w[0]) {
@@ -20,6 +59,22 @@ pub fn lt(v: V3, w: V3) bool {
     // else if (v[2] > w[2]) {
     // return false;
     // }
+}
+
+pub fn lte(v: V3, w: V3) bool {
+    if (v[0] < w[0]) {
+        return true;
+    } else if (v[0] > w[0]) {
+        return false;
+    } else if (v[1] < w[1]) {
+        return true;
+    } else if (v[1] > w[1]) {
+        return false;
+    } else if (v[2] < w[2]) {
+        return true;
+    } else if (v[2] > w[2]) {
+        return false;
+    } else return true;
 }
 
 pub fn distance(v: V3, w: V3) f32 {
